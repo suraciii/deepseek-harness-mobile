@@ -77,7 +77,7 @@ sealed interface ProbeOutcome {
     /** The name did not resolve. */
     data object DnsFailure : ProbeOutcome
 
-    /** No route to the host — usually a different network entirely. */
+    /** No route to the host — a routing problem, which the message reports as "nothing answered". */
     data object Unreachable : ProbeOutcome
 
     /** Something is listening, but it does not speak the harness protocol. */
