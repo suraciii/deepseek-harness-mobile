@@ -2,10 +2,11 @@
 
 Thanks for your interest in DSH Mobile!
 
-## Setup
-
-- Android Studio (Koala or newer) with JDK 17+ and Android SDK 35.
-- `./gradlew :app:assembleDebug` builds the debug APK.
+- JDK 17 is the supported Gradle/Kotlin toolchain. The Android and JVM modules target Java 17;
+  newer JDKs may be unsupported by the pinned Kotlin/Gradle combination.
+- Android SDK 35 is required for app builds. The pure `core` and `mock-harness` test suites do not
+  require an Android SDK or a connected device.
+- `./gradlew :core:test :mock-harness:test` is the no-ADB regression command.
 
 ## Development against a real harness
 

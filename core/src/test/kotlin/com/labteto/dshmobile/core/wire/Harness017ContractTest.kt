@@ -1,6 +1,7 @@
 package com.labteto.dshmobile.core.wire
 
 import com.labteto.dshmobile.core.wire.dto.*
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.*
 import org.junit.Assert.*
@@ -16,11 +17,13 @@ class Harness017ContractTest {
     private class Transport : RpcTransport {
         var path = ""
         var args: JsonObject = JsonObject(emptyMap())
+        var threadName = ""
         val calls = mutableListOf<Pair<String, JsonObject>>()
         var value = "{}"
         /** When set, answers every call from here instead of [value]. */
         var answer: ((path: String, rpcId: JsonElement?) -> RpcHttpResponse)? = null
         override suspend fun post(path: String, body: String): RpcHttpResponse {
+            threadName = Thread.currentThread().name
             this.path = path
             val request = Json.parseToJsonElement(body).jsonObject
             args = request.getValue("payload").jsonObject.getValue("args").jsonObject
@@ -56,6 +59,21 @@ class Harness017ContractTest {
         200,
         """{"type":"server-response","rpcId":$rpcId,"result":{"ok":false,"error":{"code":"$code","message":"refused","details":{}}}}""",
     )
+
+    @Test fun `unary decoding runs on the injected background dispatcher`() = runTest {
+        val t = Transport()
+        t.value = "{\"options\":[],\"defaultOptions\":[],\"defaultPreset\":\"auto\"}"
+        val dispatcher = java.util.concurrent.Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "preview-decode-test")
+        }.asCoroutineDispatcher()
+        try {
+            val result = DshApiClient(t, dispatcher).permissionCatalog()
+            assertTrue(result is RpcResult.Ok)
+            assertEquals("preview-decode-test", t.threadName)
+        } finally {
+            dispatcher.close()
+        }
+    }
 
     @Test fun `permission catalog and the rc2 roster decode without legacy fields`() = runTest {
         val t = Transport(); val api = DshApiClient(t)
@@ -96,6 +114,77 @@ class Harness017ContractTest {
 
         api.workspaceFileReadBytes("s", "a.png", WorkspaceByteReadOptions(range = WorkspaceByteRange(offset = 10, length = 20)))
         assertEquals(20, t.args["options"]?.jsonObject?.get("range")?.jsonObject?.get("length")?.jsonPrimitive?.int)
+    }
+
+    @Test fun `bounded preview rejects known oversized files before whole read`() = runTest {
+        val t = Transport(); val api = DshApiClient(t)
+        val source = ByteArray(8) { it.toByte() }
+        t.answer = { _, rpcId ->
+            val response = """{"absolutePath":"/w/a.png","version":"v1","bytes":${source.size},"offset":0,"data":null,"eof":false}"""
+            multipart(rpcId, response, source.copyOfRange(0, 1))
+        }
+
+        val result = api.workspaceFileReadBytesBounded("s", "a.png", maxBytes = source.size - 1)
+
+        assertEquals(WORKSPACE_FILE_TOO_LARGE, (result as RpcResult.Err).error.code)
+        assertEquals(1, t.calls.size)
+        assertEquals(1, t.args["options"]?.jsonObject?.get("range")?.jsonObject?.get("length")?.jsonPrimitive?.int)
+    }
+
+    @Test fun `bounded preview reconstructs a file through range windows`() = runTest {
+        val t = Transport(); val api = DshApiClient(t)
+        val source = ByteArray(7) { (it + 10).toByte() }
+        t.answer = { _, rpcId ->
+            val range = t.args.getValue("options").jsonObject.getValue("range").jsonObject
+            val offset = range.getValue("offset").jsonPrimitive.int
+            val length = range.getValue("length").jsonPrimitive.int
+            val end = (offset + length).coerceAtMost(source.size)
+            val response = """{"absolutePath":"/w/a.png","version":"v1","bytes":${source.size},"offset":$offset,"data":null,"eof":${end == source.size}}"""
+            multipart(rpcId, response, source.copyOfRange(offset, end))
+        }
+
+        val result = api.workspaceFileReadBytesBounded("s", "a.png", maxBytes = source.size) as RpcResult.Ok
+
+        assertArrayEquals(source, result.value.data)
+        assertEquals(2, t.calls.size)
+        assertEquals(1, t.calls.first().second.getValue("options").jsonObject.getValue("range").jsonObject.getValue("length").jsonPrimitive.int)
+    }
+
+    @Test fun `bounded preview caps unknown-size files without requesting past the limit`() = runTest {
+        val t = Transport(); val api = DshApiClient(t)
+        val source = ByteArray(8) { it.toByte() }
+        t.answer = { _, rpcId ->
+            val range = t.args.getValue("options").jsonObject.getValue("range").jsonObject
+            val offset = range.getValue("offset").jsonPrimitive.int
+            val length = range.getValue("length").jsonPrimitive.int
+            val end = (offset + length).coerceAtMost(source.size)
+            val response = """{"absolutePath":"/w/a.png","version":"v1","offset":$offset,"data":null,"eof":${end == source.size}}"""
+            multipart(rpcId, response, source.copyOfRange(offset, end))
+        }
+
+        val result = api.workspaceFileReadBytesBounded("s", "a.png", maxBytes = source.size - 1)
+
+        assertEquals(WORKSPACE_FILE_TOO_LARGE, (result as RpcResult.Err).error.code)
+        assertEquals(listOf(1, source.size - 2), t.calls.map { it.second.getValue("options").jsonObject.getValue("range").jsonObject.getValue("length").jsonPrimitive.int })
+    }
+
+    @Test fun `bounded preview preserves base-file options for legacy related reads`() = runTest {
+        val t = Transport(); val api = DshApiClient(t)
+        val legacy = """{"absolutePath":"/w/img/a.png","version":"v1","bytes":3,"offset":0,"data":"AQID","eof":true}"""
+        t.answer = { _, rpcId ->
+            if (t.args.containsKey("options")) refusal(rpcId, "gateway/arguments-invalid")
+            else RpcHttpResponse(200, """{"type":"server-response","rpcId":$rpcId,"result":{"ok":true,"value":$legacy}}""")
+        }
+
+        val result = api.workspaceFileReadBytesBounded(
+            "s", "img/a.png", maxBytes = 3,
+            options = WorkspaceByteReadOptions(baseFile = "index.html"),
+        )
+        assertTrue(result.toString(), result is RpcResult.Ok)
+        val value = (result as RpcResult.Ok).value
+        assertArrayEquals(byteArrayOf(1, 2, 3), value.data)
+        assertEquals("/api/workspaceFiles/readRelated", t.path)
+        assertEquals("index.html", t.args["path"]?.jsonPrimitive?.content)
     }
 
     @Test fun `a 0_1_6 host gets the read spelled its way and base64 is decoded`() = runTest {

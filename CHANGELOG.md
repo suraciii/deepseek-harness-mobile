@@ -14,6 +14,7 @@ again.
 | <img src="docs/images/0.18.0/hold-message.png" width="200" alt="Holding a message you sent"> | <img src="docs/images/0.18.0/rewind-result.png" width="200" alt="After Rewind to this message"> | <img src="docs/images/0.18.0/hold-tool-call.png" width="200" alt="Holding a tool call"> | <img src="docs/images/0.18.0/hold-send.png" width="200" alt="Holding Send during a turn"> |
 
 ### Added
+- **Large workspace image previews no longer block the UI on oversized files.** Multipart RPC decoding runs off the main dispatcher, and binary previews read in bounded windows so the app can reject a file before retaining more than the 32 MiB preview limit. The no-device contract tests cover known-size, unknown-size and range-window paths.
 
 - **Hold a message you sent** to copy it, select part of it, or put it back in the composer as a
   new message. If the composer already has text in it, the app asks before replacing it. With

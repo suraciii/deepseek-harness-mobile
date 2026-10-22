@@ -69,7 +69,16 @@ models, presets, subagents, permission) · ChatProjections (defensive readers).
 mock-harness/   Ktor implementation of the /api protocol for tests
 conformance/    JVM tests against a real harness checkout and a deterministic model
 tools/capture/  Node recorder of real harness traffic → conformance fixtures
+
 ```
+
+### Binary preview verification
+
+Workspace binary previews use the JVM `core` contract tests rather than requiring a connected
+Android device. `Harness017ContractTest` supplies a fake `RpcTransport` and multipart responses, so
+the tests exercise the same `DshApiClient` path for known-size rejection, range-window assembly,
+unknown-size limit enforcement, and the legacy 0.1.6 fallback. Android UI tests are not required to
+prove the byte-budget and dispatcher boundary.
 
 ## Data flow
 

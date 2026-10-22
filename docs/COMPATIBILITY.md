@@ -126,6 +126,10 @@ Nothing this client uses changed. The new `productAnalytics` Remote is Desktop-o
 
 Session format v4 moved tool-result call ids and error flags onto the message. Subagents moved from `subagents/list` to the `subagentCatalog` projection, jobs from `session/control` to `job/list`, and `readAll`/`readRelated` into multipart `readBytes`. Archiving a busy session is refused unless the request asks to stop its work. The app also reads the older 0.1.6 shapes.
 
+Binary workspace previews keep the 0.1.6 `readAll`/`readRelated` fallback while using bounded
+`readBytes` windows on 0.1.7 and newer hosts. The client rejects a preview above 32 MiB before
+retaining the full response, and the JVM contract tests cover both multipart and Base64 answers.
+
 ### 0.1.3
 
 Session format v2 removed durable assistant deltas and made the live assistant stream opt-in. Error codes became namespaced, commands take `submittedAttachments`, and file uploads were added.

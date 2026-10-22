@@ -25,6 +25,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.labteto.dshmobile.R
 import com.labteto.dshmobile.core.wire.RpcResult
+import com.labteto.dshmobile.core.wire.WORKSPACE_FILE_TOO_LARGE
 import com.labteto.dshmobile.core.wire.dto.*
 import com.labteto.dshmobile.data.SessionStore
 import androidx.compose.material.icons.Icons
@@ -54,6 +55,7 @@ import com.labteto.dshmobile.ui.components.MarkdownText
 import com.labteto.dshmobile.ui.theme.DsTheme
 import kotlinx.coroutines.*
 import java.io.File
+private const val WORKSPACE_PREVIEW_MAX_BYTES = 32 * 1024 * 1024
 
 internal fun <T> RpcResult<T>.requireValue(): T = when (this) {
     is RpcResult.Ok -> value
@@ -362,10 +364,17 @@ private fun DocumentPreview(
                 if (changed) { tab.text = null; tab.bytes = null; tab.nextLine = 1; tab.eof = false }
                 tab.stat = stat
                 if (binary && tab.bytes == null) {
-                    if ((stat.bytes ?: 0) > 32L * 1024 * 1024) error(context.getString(R.string.panel_too_large))
-                    val data = api.workspaceFileReadBytes(key.sessionId, tab.path).requireValue()
+                    if (stat.bytes != null && stat.bytes > WORKSPACE_PREVIEW_MAX_BYTES.toLong()) error(context.getString(R.string.panel_too_large))
+                    val dataResult = api.workspaceFileReadBytesBounded(
+                        key.sessionId, tab.path, WORKSPACE_PREVIEW_MAX_BYTES,
+                    )
+                    val data = when (dataResult) {
+                        is RpcResult.Ok -> dataResult.value
+                        is RpcResult.Err -> if (dataResult.error.code == WORKSPACE_FILE_TOO_LARGE) {
+                            error(context.getString(R.string.panel_too_large))
+                        } else dataResult.requireValue()
+                    }
                     if (data.version != stat.version) error(context.getString(R.string.panel_changed))
-                    if (data.data.size > 32 * 1024 * 1024) error(context.getString(R.string.panel_too_large))
                     tab.bytes = data.data
                     tab.eof = true
                 } else if (!binary && (tab.text == null || more)) {

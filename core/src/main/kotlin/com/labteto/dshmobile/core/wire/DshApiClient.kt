@@ -71,6 +71,9 @@ import java.io.IOException
 import java.io.InputStream
 import java.net.URLEncoder
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
@@ -102,6 +105,10 @@ fun RpcError.classifyCapability(): RpcError = when (code) {
 /** The streaming file-upload route (`packages/client/file-upload/src/protocol.ts`). */
 const val FILE_UPLOAD_PATH: String = "/api/session/uploadFileBinary"
 
+/** Client-side refusal returned before retaining an oversized workspace preview. */
+const val WORKSPACE_FILE_TOO_LARGE: String = "workspace-file/too-large"
+private const val WORKSPACE_PREVIEW_CHUNK_BYTES: Int = 4 * 1024 * 1024
+
 /**
  * Typed client for the harness unary wire protocol (v0.1.3-alpha.1).
  *
@@ -126,7 +133,10 @@ const val FILE_UPLOAD_PATH: String = "/api/session/uploadFileBinary"
  */
 class DshApiClient(
     private val transport: RpcTransport,
+    private val decodeDispatcher: CoroutineDispatcher,
 ) {
+    /** Keeps the original JVM/source constructor while production decoding stays on IO. */
+    constructor(transport: RpcTransport) : this(transport, Dispatchers.IO)
 
     // ------------------------------------------------------------------ unary machinery
 
@@ -144,9 +154,11 @@ class DshApiClient(
         endpoint: String,
         payload: JsonElement,
         decode: (value: JsonElement, attachments: Map<List<String>, ByteArray>) -> T,
-    ): RpcResult<T> {
+    ): RpcResult<T> = withContext(decodeDispatcher) {
+        // The caller is often a Compose coroutine on Main. Multipart bodies and their JSON/value
+        // decoding can carry megabytes, so keep the complete response path off the UI dispatcher.
         val request = ClientRequest(rpcId = newRpcId(), method = endpoint, payload = payload)
-        return try {
+        try {
             val response = transport.post("/api/$endpoint", encodeEnvelope(request))
             val multipart = response.multipart?.let { RpcMultipart.decode(response.contentType.orEmpty(), it) }
             val envelope = decodeServerResponse(multipart?.envelope?.toString() ?: response.body)
@@ -755,6 +767,66 @@ class DshApiClient(
             )
         }
         return unaryWith(endpoint, buildJsonObject { put("args", legacy) }, ::fileContentOf)
+    }
+
+    /** Read a binary preview in bounded windows, refusing before an unknown-size file exceeds the limit. */
+    suspend fun workspaceFileReadBytesBounded(
+        sessionId: String,
+        path: String,
+        maxBytes: Int,
+        options: WorkspaceByteReadOptions = WorkspaceByteReadOptions(),
+    ): RpcResult<WorkspaceFileContent> {
+        require(maxBytes > 0) { "maxBytes must be positive" }
+        fun tooLarge(): RpcResult<WorkspaceFileContent> = RpcResult.Err(
+            RpcError(WORKSPACE_FILE_TOO_LARGE, "workspace file exceeds the preview limit"),
+        )
+        fun incomplete(message: String): RpcResult<WorkspaceFileContent> = RpcResult.Err(
+            RpcError("workspace-file/incomplete", message),
+        )
+        val firstRequestLength = 1
+        val first = when (val result = workspaceFileReadBytes(
+            sessionId,
+            path,
+            options.copy(range = WorkspaceByteRange(offset = 0, length = firstRequestLength)),
+        )) {
+            is RpcResult.Err -> return result
+            is RpcResult.Ok -> result.value
+        }
+        if (first.offset != 0L) return incomplete("workspace file range did not start at offset 0")
+        if (first.bytes != null && first.bytes > maxBytes.toLong()) return tooLarge()
+        if (first.eof) return if (first.data.size <= maxBytes) RpcResult.Ok(first) else tooLarge()
+        if (first.data.size > firstRequestLength) return tooLarge()
+        if (first.data.isEmpty()) return incomplete("workspace file read made no progress")
+
+        val output = java.io.ByteArrayOutputStream()
+        output.write(first.data)
+        if (output.size() > maxBytes) return tooLarge()
+        var offset = first.offset + first.data.size
+        var current = first
+        while (!current.eof) {
+            val remaining = (maxBytes - output.size()).coerceAtMost(WORKSPACE_PREVIEW_CHUNK_BYTES)
+            if (remaining <= 0) return tooLarge()
+            val next = when (val result = workspaceFileReadBytes(
+                sessionId,
+                path,
+                options.copy(range = WorkspaceByteRange(offset, remaining)),
+            )) {
+                is RpcResult.Err -> return result
+                is RpcResult.Ok -> result.value
+            }
+            if (next.version != first.version) return RpcResult.Err(
+                RpcError("workspace-file/changed", "workspace file changed while reading"),
+            )
+            if (next.bytes != null && next.bytes > maxBytes.toLong()) return tooLarge()
+            if (next.offset != offset) return incomplete("workspace file range did not continue at the expected offset")
+            if (next.data.size > remaining) return tooLarge()
+            if (next.data.isEmpty() && !next.eof) return incomplete("workspace file read made no progress")
+            output.write(next.data)
+            if (output.size() > maxBytes) return tooLarge()
+            offset += next.data.size
+            current = next
+        }
+        return RpcResult.Ok(WorkspaceFileContent(first.absolutePath, first.version, first.bytes, 0, true, output.toByteArray()))
     }
 
     /** A `readBytes` value from either host: the bytes from their part, or from base64 `data`. */
