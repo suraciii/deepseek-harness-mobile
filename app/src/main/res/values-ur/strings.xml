@@ -37,7 +37,7 @@
     <string name="connect_same_device">یہ ڈیوائس (لوپ بیک)</string>
     <string name="connect_auto_title">خودکار کنکشن</string>
     <string name="connect_auto_last">آخری استعمال شدہ Harness سے دوبارہ منسلک ہوں</string>
-    <string name="connect_auto_lan">قریب کے کسی Harness سے خودکار طور پر منسلک ہوں</string>
+    <string name="connect_auto_nearby">قریب کے کسی Harness سے خودکار طور پر منسلک ہوں</string>
     <string name="connect_auto_loopback">اس ڈیوائس پر موجود Harness سے خودکار طور پر منسلک ہوں</string>
     <string name="connect_failed">%1$s پر کسی Harness تک رسائی ممکن نہیں ہو سکی</string>
     <string name="connect_failed_fence">نام کے بجائے کمپیوٹر کے IP پتے سے جڑیں، یا harness کو --trusted-host کے ساتھ چلائیں۔</string>

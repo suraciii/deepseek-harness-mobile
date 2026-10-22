@@ -37,7 +37,7 @@
     <string name="connect_same_device">Это устройство (loopback)</string>
     <string name="connect_auto_title">Автоподключение</string>
     <string name="connect_auto_last">Переподключаться к последнему использованному Harness</string>
-    <string name="connect_auto_lan">Автоподключение к ближайшему Harness</string>
+    <string name="connect_auto_nearby">Автоподключение к ближайшему Harness</string>
     <string name="connect_auto_loopback">Автоподключение к Harness на этом устройстве</string>
     <string name="connect_failed">Не удалось связаться с Harness по адресу %1$s</string>
     <string name="connect_failed_fence">Подключайтесь по IP-адресу компьютера, а не по имени, либо запустите harness с --trusted-host.</string>

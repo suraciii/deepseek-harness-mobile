@@ -295,7 +295,7 @@ fun ConnectScreen(
                     checked = state.autoConnectLast,
                 ) { viewModel.setAuto("last", !state.autoConnectLast) }
                 ToggleRow(
-                    label = stringResource(R.string.connect_auto_lan),
+                    label = stringResource(R.string.connect_auto_nearby),
                     checked = state.autoConnectDirect,
                 ) { viewModel.setAuto("direct", !state.autoConnectDirect) }
                 ToggleRow(

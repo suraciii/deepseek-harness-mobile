@@ -46,7 +46,7 @@
     <string name="connect_same_device">This device (loopback)</string>
     <string name="connect_auto_title">Auto-connect</string>
     <string name="connect_auto_last">Reconnect to the last endpoint</string>
-    <string name="connect_auto_lan">Auto-connect to a nearby harness</string>
+    <string name="connect_auto_nearby">Auto-connect to a nearby harness</string>
     <string name="connect_auto_loopback">Auto-connect to the harness on this phone</string>
     <string name="connect_failed">Could not reach a harness at %1$s</string>
     <string name="connect_failed_fence">Connect using the computer\'s IP address instead of its name, or start the harness with --trusted-host.</string>

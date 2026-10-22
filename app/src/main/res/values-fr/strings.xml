@@ -37,7 +37,7 @@
     <string name="connect_same_device">Cet appareil (loopback)</string>
     <string name="connect_auto_title">Connexion automatique</string>
     <string name="connect_auto_last">Se reconnecter au dernier Harness utilisé</string>
-    <string name="connect_auto_lan">Connexion automatique à un Harness à proximité</string>
+    <string name="connect_auto_nearby">Connexion automatique à un Harness à proximité</string>
     <string name="connect_auto_loopback">Connexion automatique au Harness de cet appareil</string>
     <string name="connect_failed">Impossible de joindre un Harness sur %1$s</string>
     <string name="connect_failed_fence">Connectez-vous avec l\'adresse IP de l\'ordinateur plutôt que son nom, ou démarrez le harness avec --trusted-host.</string>

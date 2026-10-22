@@ -37,7 +37,7 @@
     <string name="connect_same_device">本设备（回环）</string>
     <string name="connect_auto_title">自动连接</string>
     <string name="connect_auto_last">重新连接上次的端点</string>
-    <string name="connect_auto_lan">自动连接到附近的 Harness</string>
+    <string name="connect_auto_nearby">自动连接到附近的 Harness</string>
     <string name="connect_auto_loopback">自动连接本手机上的 Harness</string>
     <string name="connect_failed">无法连接 %1$s 上的 Harness</string>
     <string name="connect_failed_fence">请使用电脑的 IP 地址而不是主机名进行连接，或使用 --trusted-host 启动 harness。</string>

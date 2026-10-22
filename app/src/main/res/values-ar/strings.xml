@@ -37,7 +37,7 @@
     <string name="connect_same_device">هذا الجهاز (loopback)</string>
     <string name="connect_auto_title">الاتصال التلقائي</string>
     <string name="connect_auto_last">إعادة الاتصال بآخر Harness مستخدم</string>
-    <string name="connect_auto_lan">الاتصال تلقائيًا بـ harness قريب</string>
+    <string name="connect_auto_nearby">الاتصال تلقائيًا بـ harness قريب</string>
     <string name="connect_auto_loopback">الاتصال تلقائيًا بـ Harness على هذا الجهاز</string>
     <string name="connect_failed">تعذر الوصول إلى Harness على %1$s</string>
     <string name="connect_failed_fence">اتصل باستخدام عنوان IP للكمبيوتر بدلًا من اسمه، أو شغّل الـ harness مع --trusted-host.</string>

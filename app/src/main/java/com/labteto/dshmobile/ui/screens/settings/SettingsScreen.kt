@@ -183,7 +183,7 @@ fun SettingsScreen(onClose: () -> Unit, viewModel: SettingsViewModel = hiltViewM
                         settings.autoConnectLast,
                     ) { viewModel.set { it.copy(autoConnectLast = !it.autoConnectLast) } }
                     ToggleRow(
-                        stringResource(R.string.connect_auto_lan),
+                        stringResource(R.string.connect_auto_nearby),
                         settings.autoConnectDirect,
                     ) { viewModel.set { it.copy(autoConnectDirect = !it.autoConnectDirect) } }
                     ToggleRow(
