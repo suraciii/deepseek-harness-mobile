@@ -24,7 +24,7 @@ hold for any direct endpoint (see **What DSH Mobile stores**). Whoever holds the
 phone unlocked holds the agent — which is already true of the Termux session
 next to it.
 
-Two things are new in this mode, both opt-in:
+Two things are new here, both opt-in:
 
 - **The app can run commands in Termux.** Start, Stop and Install via Termux go
   through Termux's `RunCommandService`, behind a permission Termux itself

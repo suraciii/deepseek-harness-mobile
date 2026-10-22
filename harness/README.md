@@ -171,8 +171,8 @@ IP address rather than a hostname, or start the harness with `dsh web --trusted-
 
 ### "Cannot reach this address" / the phone is on a different subnet
 
-The address you typed is outside the phone's own /24, so the phone has no route to it and
-**Scan network** cannot find it either, since the sweep only walks the phone's own subnet. Typing
+The address you typed is outside the phone's own /24, so the phone has no route to it, and
+**Find nearby** cannot find it either, since the sweep only walks the phone's own subnet. Typing
 an address that is outside your subnet is fine and is how a Tailnet, a VPN or a public HTTPS proxy
 is reached — the address is simply not reachable from here. Check that the phone and the computer
 are both connected to the router network you think they are, or paste an address that is routable

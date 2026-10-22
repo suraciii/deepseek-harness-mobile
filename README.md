@@ -139,7 +139,7 @@ fails, the app says why, and the wiki's
 [troubleshooting page](https://github.com/sorsama/deepseek-harness-mobile/wiki/Troubleshooting) is
 organized by those messages.
 
-Tap **Find nearby** (or **Scan network**) when you do not have an address to paste. It only looks
+Tap **Find nearby** when you do not have an address to paste. It only looks
 at this phone's local IPv4 `/24`, so it finds a harness on the same router network and nothing
 beyond it. Anything reachable another way — Tailnet, VPN, a relay, a proxy — is pasted instead of
 scanned.
