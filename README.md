@@ -113,12 +113,12 @@ walks through it.
 #### USB cable or emulator
 
 Run `dsh web` on the computer and `adb reverse tcp:3080 tcp:3080`. In
-the app, choose **This phone** and sign in with the link `dsh web` printed.
+the app, open **This phone** and sign in with the link `dsh web` printed.
 
 #### On the phone itself
 
 The harness can run in [Termux](https://f-droid.org/packages/com.termux/).
-Choose **This phone**, and the app can start and stop the harness and sign in for you. Setting up
+Open **This phone**, and the app can start and stop the harness and sign in for you. Setting up
 Node in Termux does not work on every device yet; read [`harness/TERMUX.md`](harness/TERMUX.md)
 first.
 
