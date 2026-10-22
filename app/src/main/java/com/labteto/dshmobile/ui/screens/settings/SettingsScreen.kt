@@ -184,8 +184,8 @@ fun SettingsScreen(onClose: () -> Unit, viewModel: SettingsViewModel = hiltViewM
                     ) { viewModel.set { it.copy(autoConnectLast = !it.autoConnectLast) } }
                     ToggleRow(
                         stringResource(R.string.connect_auto_lan),
-                        settings.autoConnectLan,
-                    ) { viewModel.set { it.copy(autoConnectLan = !it.autoConnectLan) } }
+                        settings.autoConnectDirect,
+                    ) { viewModel.set { it.copy(autoConnectDirect = !it.autoConnectDirect) } }
                     ToggleRow(
                         stringResource(R.string.connect_auto_loopback),
                         settings.autoConnectLoopback,

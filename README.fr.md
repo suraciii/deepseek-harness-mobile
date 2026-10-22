@@ -82,6 +82,13 @@ et installez-le. Il vous faut Android 8.0 ou plus récent.
 
 ### 2. Rendre le harness accessible
 
+L'application n'a qu'un seul champ d'adresse. Collez l'adresse DSH qu'affiche le harness — la
+ligne entière `dsh web: http://…` convient aussi — ou saisissez n'importe quelle adresse qui l'atteint :
+une adresse de réseau local, une adresse Tailnet ou VPN, ou l'URL `https://` de votre propre reverse
+proxy. Comment le téléphone rejoint le harness est une propriété de cette adresse, pas un mode que
+vous choisissez. **Ce téléphone** reste à part, pour un harness sur l'appareil lui-même ou redirigé
+en `adb reverse`.
+
 Par défaut, le harness n'écoute que sur son propre ordinateur. Choisissez la configuration qui
 correspond à l'endroit où se trouvera votre téléphone.
 
@@ -95,8 +102,8 @@ dsh web --host 192.168.1.20
 ```
 
 Remplacez `192.168.1.20` par l'adresse réelle de votre ordinateur. Le harness affiche une ligne du
-type `dsh web: http://192.168.1.20:3080/?token=…`. Dans l'application, choisissez **Réseau local**,
-collez ce lien en entier dans le champ d'adresse (ou touchez le bouton Coller), puis touchez
+type `dsh web: http://192.168.1.20:3080/?token=…`. Collez ce lien en entier dans le champ d'adresse
+de l'application (ou touchez le bouton Coller), puis touchez
 **Se connecter**. Le jeton contenu dans le lien connecte le téléphone, et le harness apparaît
 ensuite sous **Récents** pour les fois suivantes. Les versions plus anciennes du harness ont besoin
 d'un petit correctif à la place de `--host` ; voir [`harness/README.md`](harness/README.md).
@@ -104,8 +111,10 @@ d'un petit correctif à la place de `--host` ; voir [`harness/README.md`](harnes
 #### Hors de chez vous
 
 Installez [dsh-relay](https://github.com/sorsama/deepseek-harness-relay), un
-plugin du harness qui ajoute un mot de passe, le chiffrement et l'appairage des appareils. Choisissez
-ensuite **Relais** dans l'application et scannez le QR code d'appairage. La [page du wiki sur le relais](https://github.com/sorsama/deepseek-harness-mobile/wiki/Relay)
+plugin du harness qui ajoute un mot de passe, le chiffrement et l'appairage des appareils. Collez
+ensuite l'adresse du relais et touchez **Se connecter** : un relais pas encore appairé vous emmène à
+l'appairage, où vous scannez son QR code (l'appairage du relais est une action à part, pas une étape
+de la connexion normale). La [page du wiki sur le relais](https://github.com/sorsama/deepseek-harness-mobile/wiki/Relay)
 explique la marche à suivre.
 
 #### Câble USB ou émulateur
@@ -122,9 +131,13 @@ appareils ; lisez d'abord [`harness/TERMUX.md`](harness/TERMUX.md).
 
 #### Votre propre reverse proxy HTTPS
 
-Collez son adresse `https://` en mode **Réseau local**. Le proxy
+Collez son adresse `https://`. Le proxy
 chiffre la connexion, mais il ne vérifie pas qui se connecte. Voir
 [`harness/README.md`](harness/README.md).
+
+Une adresse `https://` fonctionne partout où ce proxy est accessible : votre réseau local, un
+Tailnet ou VPN, ou un point de terminaison HTTPS public que vous contrôlez. Une adresse `http://`
+reste en clair de bout en bout, alors n'exposez jamais le harness directement en HTTP public.
 
 ### 3. Se mettre au travail
 
@@ -139,12 +152,15 @@ Lisez [docs/SECURITY.md](docs/SECURITY.md) avant de vous connecter par le résea
 connecté peut faire tout ce que l'agent peut faire, et l'agent exécute des commandes sur votre
 ordinateur. Autoriser une connexion revient à donner un accès shell.
 
-- Le mode Réseau local vérifie le jeton de connexion, mais ne chiffre rien. Ne l'utilisez que sur
-  un réseau de confiance.
-- Le mode Relais ajoute le chiffrement et un certificat épinglé, et fonctionne depuis l'extérieur
-  de votre réseau.
-- Gardez le lien `dsh web` pour vous. Toute personne qui l'a peut se connecter jusqu'au redémarrage
-  du harness.
+- Une adresse `https://` chiffre la connexion. Une adresse `http://` — y compris celle qu'affiche le
+  harness par défaut — reste en clair : quiconque est entre le téléphone et l'ordinateur peut la lire
+  et, tant que le cookie de session est valide, s'en servir. N'utilisez HTTP que sur un réseau de
+  confiance, et n'exposez jamais le harness directement en HTTP public ; utilisez un reverse proxy
+  TLS ou un relais.
+- Un relais appairé ajoute un credential bearer et un certificat épinglé, donc il fonctionne depuis
+  l'extérieur de votre réseau. Gardez son mot de passe d'appairage solide et ne désactivez pas son TLS.
+- Les points de terminaison directs se connectent avec le cookie de session du harness. Gardez le
+  lien `dsh web` pour vous : toute personne qui l'a peut se connecter jusqu'au redémarrage du harness.
 
 ## Compatibilité
 

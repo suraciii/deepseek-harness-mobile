@@ -32,11 +32,20 @@ core/           pure JVM — no Android imports
 
 app/            Android UI
   connection/   HostsStore (remembered hosts + settings, DataStore),
-                  DiscoveryEngine (Wi-Fi subnet sweep +
+                  DiscoveryEngine (Wi-Fi subnet sweep, bounded to the
+                  phone's local IPv4 /24, +
                   session/canOpenWorkspacePath probe), ConnectionManager
                   (owns the ConnectionLoop, exposes the host event flow
                   and the current generation), ConnectionService
                   (foreground service), KeepAliveWorker (15-min fallback)
+                  — every remembered host is one of three endpoint kinds:
+                  a loopback host (the harness on this phone, or forwarded
+                  to it), a direct host (any address the phone can route
+                  to: LAN, Tailnet, VPN, reverse proxy), or a paired relay
+                  (relay bearer credential + pinned key). Which kind it is
+                  comes from the endpoint itself, not from a network-type
+                  preference the app persists; discovery is what stays
+                  local, sweeping only the phone's own /24.
   data/         SessionStore — the live mirror of the harness: session
                   list/workspaces/folds per session, queue/jobs/
                   projections, approvals/questions, subagent catalog,
@@ -124,10 +133,12 @@ prove the byte-budget and dispatcher boundary.
   different facts and are reported separately.
 - There is no loopback-only method tier: harness 0.1.2 deleted it, and one
   authenticated caller reaches the whole API (see `docs/COMPATIBILITY.md`).
-- Every remembered host belongs to exactly one connect mode
-  (`HostConfig.belongsTo`), and auto-connect never crosses modes. A loopback
-  host is probed with its stored cookie; an anonymous probe of a 0.1.2+ harness
-  can only ever answer 401.
+- Every remembered host is one endpoint kind — loopback, direct, or paired
+  relay — derived from the host record itself (`isLoopback` / `isRelay`); the app
+  persists no network-type choice per host, and the credential follows the kind:
+  a direct host is probed with its stored session cookie, while a paired relay
+  answers to its bearer token and pinned key. An anonymous probe of a 0.1.2+
+  harness can only ever answer 401.
 - Nothing runs in Termux without a tap having asked for it, and the app never
   issues a Termux command from the background.
 - Tool cards are derived in the app from raw call/result data; the host

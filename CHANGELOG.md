@@ -34,6 +34,19 @@ again.
 
 ### Changed
 
+- **One DSH address, not a choice of networks.** The connect screen no longer asks you to pick
+  Local network, Relay or This phone before you can start: paste the DSH address the harness
+  prints — a LAN address, a Tailnet or VPN address, your reverse proxy's `https://` URL, or a
+  relay's address — and the app connects. Where the harness is reachable from is a property of the
+  address, not a mode. `https://` addresses are encrypted end to end and work from anywhere the
+  proxy is reachable; `http://` stays plaintext, so never expose a harness directly over public
+  HTTP. **This phone** remains separate, for a harness on the device itself or forwarded with
+  `adb reverse`, and relay pairing is its own action: paste the relay's address and scan its QR.
+- **A manually entered address is no longer rejected for being outside the phone's subnet.**
+  Reachability is a property of the address, so typing a Tailnet, VPN or proxy endpoint outside the
+  phone's own /24 now connects instead of failing up front. Nearby discovery keeps its bounds: the
+  subnet sweep and Scan/Find nearby still look only at the phone's local IPv4 /24, and a relay is
+  still found by its mDNS advertisement.
 - The session and workspace menus in the chat list now open in the same bottom sheet as every
   other hold, with icons and the name of what you held at the top, and holding gives a haptic
   tick. The workspace menu has a new **Copy path**.

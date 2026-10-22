@@ -77,6 +77,12 @@ and install it. You need Android 8.0 or newer.
 
 ### 2. Make the harness reachable
 
+The app has one address field. Paste the DSH address the harness prints — the whole
+`dsh web: http://…` line works — or type any address that reaches it: a LAN address, a Tailnet or
+VPN address, or your own reverse proxy's `https://` URL. How the phone reaches the harness is a
+property of that address, not a mode you pick. **This phone** is separate, for a harness on the
+device itself or forwarded over `adb reverse`.
+
 The harness only listens on its own computer by default. Pick the setup that matches where your
 phone will be.
 
@@ -90,16 +96,18 @@ dsh web --host 192.168.1.20
 ```
 
 Use your computer's real address instead of `192.168.1.20`. The harness prints a line like
-`dsh web: http://192.168.1.20:3080/?token=…`. In the app, choose **Local network**, paste that
-whole link into the address field (or tap the paste button), and tap **Connect**. The token in the
-link signs the phone in, and the harness then appears under **Recent** for next time. Older harness
-versions need a small patch instead of `--host`; see [`harness/README.md`](harness/README.md).
+`dsh web: http://192.168.1.20:3080/?token=…`. Paste that whole link into the app's address field
+(or tap the paste button) and tap **Connect**. The token in the link signs the phone in, and the
+harness then appears under **Recent** for next time. Older harness versions need a small patch
+instead of `--host`; see [`harness/README.md`](harness/README.md).
 
 #### Away from home
 
 Install [dsh-relay](https://github.com/sorsama/deepseek-harness-relay), a
-harness plugin that adds a password, encryption and device pairing. Then choose **Relay** in the
-app and scan the pairing QR code. The [Relay wiki page](https://github.com/sorsama/deepseek-harness-mobile/wiki/Relay)
+harness plugin that adds a password, encryption and device pairing. Then paste the relay's
+address and tap **Connect**: an unpaired relay takes you to pairing, where you scan its QR code
+(relay pairing is a separate action, not part of the normal sign-in). The
+[Relay wiki page](https://github.com/sorsama/deepseek-harness-mobile/wiki/Relay)
 walks through it.
 
 #### USB cable or emulator
@@ -116,9 +124,13 @@ first.
 
 #### Your own HTTPS reverse proxy
 
-Paste its `https://` address in **Local network** mode. The proxy
+Paste its `https://` address. The proxy
 encrypts the connection, but it does not check who is connecting. See
 [`harness/README.md`](harness/README.md).
+
+An `https://` address works wherever that proxy is reachable — your LAN, a Tailnet or VPN, or a
+public HTTPS endpoint you control. A plain `http://` address stays plaintext the whole way, so
+never expose the harness directly over public HTTP.
 
 ### 3. Start working
 
@@ -127,16 +139,28 @@ fails, the app says why, and the wiki's
 [troubleshooting page](https://github.com/sorsama/deepseek-harness-mobile/wiki/Troubleshooting) is
 organized by those messages.
 
+Tap **Find nearby** (or **Scan network**) when you do not have an address to paste. It only looks
+at this phone's local IPv4 `/24`, so it finds a harness on the same router network and nothing
+beyond it. Anything reachable another way — Tailnet, VPN, a relay, a proxy — is pasted instead of
+scanned.
+
 ## Security
 
 Read [docs/SECURITY.md](docs/SECURITY.md) before you connect over a network. A signed-in phone can
 do anything the agent can do, and the agent runs commands on your computer. Treat signing in like
 giving out shell access.
 
-- Local network mode checks the sign-in token but does not encrypt anything. Use it only on a
-  network you trust.
-- Relay mode adds encryption and a pinned certificate, and works from outside your network.
-- Keep the `dsh web` link private. Anyone who has it can sign in until the harness restarts.
+- An `https://` address encrypts the connection. An `http://` address — including the one the
+  harness prints by default — is plaintext: anyone between the phone and the computer can read it
+  and, while the session cookie is valid, use it. Use HTTP only on a network you trust, and never
+  expose the harness directly over public HTTP; use a TLS reverse proxy or a relay instead.
+- A paired relay adds a bearer credential and a pinned certificate, so it works from outside your
+  network. Keep its pairing password strong and do not turn its TLS off.
+- Direct endpoints are signed in with the harness session cookie. Keep the `dsh web` link private:
+  anyone who has it can sign in until the harness restarts.
+- The app checks the certificate an HTTPS endpoint serves, and warns you when a paired relay
+  serves a different one than it did at pairing. A change you did not expect means the endpoint is
+  not the one you paired with.
 
 ## Compatibility
 
@@ -168,7 +192,7 @@ development loop, the module layout and the release steps.
 | `conformance/` | Tests that start a real harness and check every call the app makes |
 | `mock-harness/` | A small fake harness server for tests |
 | `tools/capture/` | Records real harness traffic as test fixtures |
-| `harness/` | Setup guides for local network and Termux |
+| `harness/` | Setup guides for reaching a harness from the phone, and Termux |
 | `docs/` | [Architecture](docs/ARCHITECTURE.md), [protocol notes](docs/PROTOCOL.md), [compatibility](docs/COMPATIBILITY.md), [security](docs/SECURITY.md) |
 
 The relay plugin lives in its own repository,

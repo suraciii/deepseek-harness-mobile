@@ -97,3 +97,48 @@ internal fun harnessBaseUrl(host: String, port: Int, useTls: Boolean, basePath: 
 
 internal fun endpointKey(host: String, port: Int, useTls: Boolean, basePath: String = ""): String =
     (if (useTls) "https://" else "") + urlAuthority(host, port) + basePath
+
+/**
+ * The endpoint one address field turns into: authority, TLS posture and whether it is this device.
+ *
+ * [parseHostInput] says what the field carried; this decides the gaps. An explicit scheme is
+ * authoritative in both directions; a bare port of 443 means a TLS reverse proxy, because the
+ * harness never serves there and plaintext to that port is an answer nobody can read. Everything
+ * else defaults to the harness's own port. `null` when nothing connectable was typed — the same
+ * refusal [parseHostInput] already makes for an unusable string.
+ *
+ * A free function so the mapping is pinned without a device: it is the whole of "what the address
+ * means", and the connect screen no longer has a mode that would overrule it.
+ */
+internal fun resolveEndpoint(raw: String, defaultPort: Int): HostEndpoint? {
+    val input = parseHostInput(raw) ?: return null
+    val port = input.port ?: when (input.useTls) { true -> 443; false -> 80; null -> defaultPort }
+    if (port !in 1..65535) return null
+    val useTls = input.useTls ?: (port == 443)
+    return HostEndpoint(
+        host = input.host,
+        port = port,
+        useTls = useTls,
+        basePath = input.basePath,
+        authority = endpointKey(input.host, port, useTls, input.basePath),
+        isLoopback = input.host == "127.0.0.1" || input.host == "localhost",
+    )
+}
+
+/** One parsed address, ready to be attempted or remembered. */
+data class HostEndpoint(
+    val host: String,
+    val port: Int,
+    val useTls: Boolean,
+    val basePath: String,
+    /** Complete endpoint identity, including the reverse-proxy root. */
+    val authority: String,
+    /** The harness is on this device: `127.0.0.1` or `localhost`. */
+    val isLoopback: Boolean,
+) {
+    /** Origin to address this endpoint by. */
+    val baseUrl: String get() = harnessBaseUrl(host, port, useTls, basePath)
+
+    /** Whether traffic to this endpoint travels in the clear. */
+    val isPlaintext: Boolean get() = !useTls
+}

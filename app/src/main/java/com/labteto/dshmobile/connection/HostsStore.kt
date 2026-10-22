@@ -30,10 +30,10 @@ class HostsStore @Inject constructor(
     private object Keys {
         val HOSTS = stringPreferencesKey("hosts_json")
         val AUTO_LAST = booleanPreferencesKey("auto_last")
-        val AUTO_LAN = booleanPreferencesKey("auto_lan")
+        // Keep the old DataStore key so upgrades retain the nearby-discovery preference.
+        val AUTO_DIRECT = booleanPreferencesKey("auto_lan")
         val AUTO_LOOPBACK = booleanPreferencesKey("auto_loopback")
         val AUTO_START_LOOPBACK = booleanPreferencesKey("auto_start_loopback")
-        val AUTO_RELAY = booleanPreferencesKey("auto_relay")
         val CONNECT_MODE = stringPreferencesKey("connect_mode")
         val BACKGROUND = booleanPreferencesKey("background")
         val NOTIFY_TURN = booleanPreferencesKey("notify_turn")
@@ -66,10 +66,9 @@ class HostsStore @Inject constructor(
             ?: listOf(3080)
         AppSettings(
             autoConnectLast = prefs[Keys.AUTO_LAST] ?: true,
-            autoConnectLan = prefs[Keys.AUTO_LAN] ?: false,
+            autoConnectDirect = prefs[Keys.AUTO_DIRECT] ?: false,
             autoConnectLoopback = prefs[Keys.AUTO_LOOPBACK] ?: true,
             autoStartLoopbackHarness = prefs[Keys.AUTO_START_LOOPBACK] ?: false,
-            autoConnectRelay = prefs[Keys.AUTO_RELAY] ?: false,
             connectMode = ConnectMode.of(prefs[Keys.CONNECT_MODE]),
             keepConnectedInBackground = prefs[Keys.BACKGROUND] ?: false,
             notifyTurnComplete = prefs[Keys.NOTIFY_TURN] ?: true,
@@ -218,11 +217,10 @@ class HostsStore @Inject constructor(
         DshApplication.storeThemePreference(context, next.themePreference)
         dataStore.edit { prefs ->
             prefs[Keys.AUTO_LAST] = next.autoConnectLast
-            prefs[Keys.AUTO_LAN] = next.autoConnectLan
+            prefs[Keys.AUTO_DIRECT] = next.autoConnectDirect
             prefs[Keys.AUTO_LOOPBACK] = next.autoConnectLoopback
             prefs[Keys.AUTO_START_LOOPBACK] = next.autoStartLoopbackHarness
-            prefs[Keys.AUTO_RELAY] = next.autoConnectRelay
-            prefs[Keys.CONNECT_MODE] = next.connectMode
+            prefs[Keys.CONNECT_MODE] = ConnectMode.of(next.connectMode)
             prefs[Keys.BACKGROUND] = next.keepConnectedInBackground
             prefs[Keys.NOTIFY_TURN] = next.notifyTurnComplete
             prefs[Keys.NOTIFY_GOAL] = next.notifyGoal
@@ -244,7 +242,11 @@ class HostsStore @Inject constructor(
      */
     suspend fun setConnectModeIfUnset(default: suspend () -> String): String {
         val stored = dataStore.data.first()[Keys.CONNECT_MODE]
-        if (stored != null) return ConnectMode.of(stored)
+        if (stored != null) {
+            val normalized = ConnectMode.of(stored)
+            if (stored != normalized) dataStore.edit { it[Keys.CONNECT_MODE] = normalized }
+            return normalized
+        }
         val chosen = ConnectMode.of(default())
         dataStore.edit { prefs ->
             if (prefs[Keys.CONNECT_MODE] == null) prefs[Keys.CONNECT_MODE] = chosen

@@ -36,28 +36,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Whether [target] sits in the same /24 as any of [localIps].
- *
- * Free function so it is testable without a device: the sweep only ever looks at the phone's own
- * /24, so an address outside it can be rejected instantly with a message that also explains why
- * scanning found nothing. A non-literal host (a name) is not judged here — it cannot be.
- */
-internal fun sameSubnet(target: String, localIps: List<String>): Boolean {
-    val targetParts = target.split('.')
-    if (targetParts.size != 4 || targetParts.any { part -> part.toIntOrNull()?.takeIf { it in 0..255 } == null }) {
-        return true // Not an IPv4 literal — nothing to compare, so do not claim a mismatch.
-    }
-    if (localIps.isEmpty()) return true
-    val targetPrefix = targetParts.take(3)
-    return localIps.any { it.split('.').take(3) == targetPrefix }
-}
-
-/**
  * What a refused probe means, given whether the address is a relay this device paired with.
  *
- * Free function for the same reason as [sameSubnet]: the statuses are the part worth pinning, and
- * reaching them through [DiscoveryEngine] needs the credential stores. [detail] is the carrier's
- * own wording, kept for the outcomes that have nothing more specific to say.
+ * Free function so the statuses are testable without a device: reaching them through
+ * [DiscoveryEngine] needs the credential stores. [detail] is the carrier's own wording, kept for
+ * the outcomes that have nothing more specific to say.
  */
 internal fun probeOutcomeOf(kind: TransportFailure?, relay: Boolean, detail: String): ProbeOutcome =
     when (kind) {
@@ -299,22 +282,6 @@ class DiscoveryEngine @Inject constructor(
         }
     }
 
-    /**
-     * True when [host] is an IPv4 literal in one of this device's own /24s.
-     *
-     * Suspending because enumerating interfaces is a syscall walk, and this runs on the tap that
-     * starts a connection — not somewhere a stall is acceptable.
-     */
-    suspend fun isOnLocalSubnet(host: String): Boolean =
-        withContext(Dispatchers.IO) { sameSubnet(host, localIpv4s()) }
-
-    /** This device's own /24 as a label, e.g. `192.168.1.x`; null when it has no IPv4. */
-    suspend fun localSubnetLabel(): String? = withContext(Dispatchers.IO) {
-        localIpv4s().firstOrNull()
-            ?.split('.')
-            ?.takeIf { it.size == 4 }
-            ?.let { "${it[0]}.${it[1]}.${it[2]}.x" }
-    }
 
     /**
      * Sweep the subnet(s) of this device on [ports], probing concurrently.

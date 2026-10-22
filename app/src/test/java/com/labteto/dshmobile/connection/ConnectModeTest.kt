@@ -6,9 +6,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * One predicate decides which remembered hosts each mode lists and auto-connects to. The
- * failure it guards against is a host crossing modes: a loopback record offered a subnet check
- * it can never pass under local network, or a LAN host under "this phone".
+ * The persisted remote context is `direct`; only loopback and paired relay remain distinct endpoint
+ * kinds. The legacy `lan` value is accepted as the same direct context rather than recreated as a
+ * user-selectable network mode.
  */
 class ConnectModeTest {
 
@@ -19,34 +19,55 @@ class ConnectModeTest {
     )
 
     @Test
-    fun `stored values read back, and anything else is local network`() {
+    fun `legacy lan values migrate to direct and unknown values fall back to direct`() {
+        assertEquals(ConnectMode.DIRECT, ConnectMode.of("lan"))
+        assertEquals(ConnectMode.DIRECT, ConnectMode.of("direct"))
+        assertEquals(ConnectMode.DIRECT, ConnectMode.of(null))
+        assertEquals(ConnectMode.DIRECT, ConnectMode.of("usb"))
         assertEquals(ConnectMode.LOOPBACK, ConnectMode.of("loopback"))
         assertEquals(ConnectMode.RELAY, ConnectMode.of("relay"))
-        assertEquals(ConnectMode.LAN, ConnectMode.of("lan"))
-        assertEquals(ConnectMode.LAN, ConnectMode.of(null))
-        assertEquals(ConnectMode.LAN, ConnectMode.of("usb"))
     }
 
+    /** The canonical default is direct; loopback and relay stay distinct endpoint kinds. */
     @Test
-    fun `each host belongs to exactly one mode`() {
-        assertTrue(lan.belongsTo(ConnectMode.LAN))
-        assertFalse(lan.belongsTo(ConnectMode.LOOPBACK))
-        assertFalse(lan.belongsTo(ConnectMode.RELAY))
-
-        assertTrue(loopback.belongsTo(ConnectMode.LOOPBACK))
-        assertFalse(loopback.belongsTo(ConnectMode.LAN))
-        assertFalse(loopback.belongsTo(ConnectMode.RELAY))
-
-        assertTrue(relay.belongsTo(ConnectMode.RELAY))
-        assertFalse(relay.belongsTo(ConnectMode.LAN))
-        assertFalse(relay.belongsTo(ConnectMode.LOOPBACK))
+    fun `the default stored context is direct`() {
+        assertEquals(ConnectMode.DIRECT, AppSettings().connectMode)
+        assertEquals("direct", ConnectMode.DIRECT)
+        assertEquals("loopback", ConnectMode.LOOPBACK)
+        assertEquals("relay", ConnectMode.RELAY)
     }
 
-    /** A relay is a relay whatever address it has; the device id is what makes it one. */
+    /**
+     * The three endpoint kinds are mutually exclusive and cover every host: what the endpoint *is*
+     * decides which credential is presented, and nothing else does.
+     */
     @Test
-    fun `a relay on loopback is still a relay`() {
-        val local = relay.copy(host = "127.0.0.1", isLoopback = true)
-        assertTrue(local.belongsTo(ConnectMode.RELAY))
-        assertFalse(local.belongsTo(ConnectMode.LOOPBACK))
+    fun `each host has exactly one endpoint kind`() {
+        assertFalse(lan.isLoopback)
+        assertFalse(lan.isRelay)
+        assertTrue(loopback.isLoopback)
+        assertFalse(loopback.isRelay)
+        assertTrue(relay.isRelay)
+        // A relay on loopback is still a relay: the device id outranks the address.
+        val localRelay = relay.copy(host = "127.0.0.1", isLoopback = true)
+        assertTrue(localRelay.isRelay)
+    }
+
+    /** The old `autoConnectLan` name is gone: direct auto-connect is the persisted setting now. */
+    @Test
+    fun `direct auto-connect replaced the lan setting`() {
+        assertFalse(AppSettings().autoConnectDirect)
+        assertTrue(AppSettings().autoConnectLast)
+        assertTrue(AppSettings().autoConnectLoopback)
+    }
+
+    /** A remembered host's relay credential is not inferred from its address. */
+    @Test
+    fun `relay identity comes from the device id alone`() {
+        val sameAddressPlain = relay.copy(relayDeviceId = null)
+        assertFalse(sameAddressPlain.isRelay)
+        assertTrue(relay.isRelay)
+        assertFalse(relay.isPlaintext)
+        assertTrue(lan.isPlaintext)
     }
 }

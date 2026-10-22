@@ -1,13 +1,16 @@
-# LAN setup for DSH Mobile
+# Connecting DSH Mobile to a reachable harness
 
 This guide targets harness `0.2.1-rc.2`. The patch instructions below remain
 available for `0.2.0-rc.1`, `0.1.7-rc.x`, and `0.1.6-alpha.x`.
 
 The harness authenticates every API call and WebSocket stream. On startup it prints a
-root URL containing a launch token. In DSH Mobile, connect to the host, choose **Sign in**,
-and paste that startup link or its token. The app exchanges it for the host's browser
-session cookie through the existing transport. A token is accepted only by the root
-exchange; it is not an API bearer token. Keep the startup link private.
+root URL containing a launch token. In DSH Mobile, paste that startup link into the
+address field and tap **Connect** — the app does not ask you to pick a network type
+first, because where the harness is reachable from (your LAN, a Tailnet or VPN, your
+own reverse proxy) is a property of the address you paste. The app exchanges the token
+for the host's browser session cookie through the existing transport. A token is
+accepted only by the root exchange; it is not an API bearer token. Keep the startup
+link private.
 
 Authentication does not encrypt plain HTTP. Use a trusted LAN, a TLS reverse proxy,
 or the separately maintained [dsh-relay](https://github.com/sorsama/deepseek-harness-relay).
@@ -74,9 +77,13 @@ a valid browser session gets 401.
    dsh web --trusted-host myhost.local
    ```
 
-4. In DSH Mobile, make sure **Local network** is selected on the connect
-   screen, then tap **Scan network** or enter `192.168.1.20` / `3080` manually.
-   Relay mode will not find a harness patched this way — it looks for relays.
+4. In DSH Mobile, paste `192.168.1.20` / `3080` (or the printed
+   `http://192.168.1.20:3080/?token=…` link) into the address field and tap
+   **Connect**. A manually entered address is accepted whatever the phone's own
+   subnet is — the subnet check applies to scanning, not to what you type. **Scan
+   network** only finds a harness patched this way, since the sweep walks this
+   phone's own `/24`; a relay is found by its mDNS advertisement or by pasting its
+   address.
 
 ## Native HTTPS (alpha.2)
 
@@ -85,7 +92,7 @@ dsh web --host 192.168.1.20 --tls-cert /path/server.crt --tls-key /path/server.k
 ```
 
 The certificate must match the address used by the phone and chain to a trusted
-certificate authority. Enter the full `https://` URL and port in the app, then
+certificate authority. Paste the full `https://` URL into the app's address field and
 sign in with the startup link. HTTP and native HTTPS sessions have distinct
 cookie audiences; sign in again when changing protocols.
 
@@ -117,7 +124,7 @@ or Traefik, for setups like
    certificate). A certificate the phone does not trust fails the connect
    with the HTTPS message below.
 
-4. In the app, enter `https://agent.home` in the host field — or just the
+4. In the app, paste `https://agent.home` into the address field — or just the
    hostname with port 443, which the app reads as HTTPS. A port typed inside
    the host field (`https://agent.home:8443`) wins over the port field, so
    pasting the proxy's URL as-is works.
@@ -162,12 +169,16 @@ If you changed the port, make sure the app's Port field matches.
 The trust fence only auto-trusts the IP literals it derives from the bind host. Connect using the
 IP address rather than a hostname, or start the harness with `dsh web --trusted-host myhost.local`.
 
-### "Not on this phone's network"
+### "Cannot reach this address" / the phone is on a different subnet
 
-The address you typed is outside the phone's own /24, so nothing on the phone can route to it — and
-**Scan network** cannot find it either, since the sweep only walks the phone's own subnet. Different
-bands of one SSID (2.4 GHz vs 5 GHz) are normally the same subnet and are fine; a *guest* SSID
-usually is not. Compare `ipconfig` on the computer with the address the app reports.
+The address you typed is outside the phone's own /24, so the phone has no route to it and
+**Scan network** cannot find it either, since the sweep only walks the phone's own subnet. Typing
+an address that is outside your subnet is fine and is how a Tailnet, a VPN or a public HTTPS proxy
+is reached — the address is simply not reachable from here. Check that the phone and the computer
+are both connected to the router network you think they are, or paste an address that is routable
+from the phone. Different bands of one SSID (2.4 GHz vs 5 GHz) are normally the same subnet and are
+fine; a *guest* SSID usually is not. Compare `ipconfig` on the computer with the address the app
+reports.
 
 ### "The secure (HTTPS) connection failed"
 

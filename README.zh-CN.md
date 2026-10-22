@@ -64,6 +64,8 @@ DeepSeek Harness 是一个运行在你电脑上的 AI 编程代理，自带网�
 
 ### 2. 让 harness 可以被访问
 
+应用只有一个地址栏。把 harness 打印出来的 DSH 地址粘贴进去——整行 `dsh web: http://…` 也认——或者直接输入任何能访问到它的地址：局域网地址、Tailnet 或 VPN 地址、你自己的反向代理的 `https://` 地址。手机怎么连到 harness 是这个地址本身决定的，不是你在应用里选的模式。**本机**是单独的一项，用于跑在手机本身、或用 `adb reverse` 转发过来的 harness。
+
 harness 默认只在它自己的电脑上监听。根据手机会在哪里使用，选择对应的方式。
 
 #### 和电脑连着同一个 Wi-Fi
@@ -74,11 +76,11 @@ harness 默认只在它自己的电脑上监听。根据手机会在哪里使用
 dsh web --host 192.168.1.20
 ```
 
-把 `192.168.1.20` 换成你电脑的实际地址。harness 会打印一行类似 `dsh web: http://192.168.1.20:3080/?token=…` 的内容。在应用里选择**局域网**，把这整条链接粘贴到地址栏（或点粘贴按钮），然后点**连接**。链接里的令牌会让手机完成登录，之后这个 harness 会出现在**最近使用**里，下次直接点就行。更早的 harness 版本不支持 `--host`，需要打一个小补丁，见 [`harness/README.md`](harness/README.md)。
+把 `192.168.1.20` 换成你电脑的实际地址。harness 会打印一行类似 `dsh web: http://192.168.1.20:3080/?token=…` 的内容。把这整条链接粘贴到应用的地址栏（或点粘贴按钮），然后点**连接**。链接里的令牌会让手机完成登录，之后这个 harness 会出现在**最近使用**里，下次直接点就行。更早的 harness 版本不支持 `--host`，需要打一个小补丁，见 [`harness/README.md`](harness/README.md)。
 
 #### 不在家时
 
-安装 [dsh-relay](https://github.com/sorsama/deepseek-harness-relay)。这是一个 harness 插件，提供密码、加密和设备配对。然后在应用里选择**中继**，扫描配对二维码。[wiki 上的 Relay 页面](https://github.com/sorsama/deepseek-harness-mobile/wiki/Relay)有完整的步骤。
+安装 [dsh-relay](https://github.com/sorsama/deepseek-harness-relay)。这是一个 harness 插件，提供密码、加密和设备配对。然后粘贴中继的地址并点**连接**：还没配对过的中继会带你进入配对界面，在那里扫它的二维码（中继配对是一个单独的动作，不属于普通登录流程）。[wiki 上的 Relay 页面](https://github.com/sorsama/deepseek-harness-mobile/wiki/Relay) 有完整的步骤。
 
 #### USB 数据线或模拟器
 
@@ -90,19 +92,24 @@ harness 可以在 [Termux](https://f-droid.org/packages/com.termux/) 里运行�
 
 #### 你自己的 HTTPS 反向代理
 
-在**局域网**模式下粘贴它的 `https://` 地址。代理会加密连接，但不会检查连过来的是谁。见 [`harness/README.md`](harness/README.md)。
+粘贴它的 `https://` 地址。代理会加密连接，但不会检查连过来的是谁。见 [`harness/README.md`](harness/README.md)。
+
+只要代理可到达，`https://` 地址在哪里都行——局域网、Tailnet 或 VPN、或一个由你把控的公网 HTTPS 端点。而 `http://` 地址全程都是明文，所以绝不要把 harness 直接暴露在公网 HTTP 上。
 
 ### 3. 开始工作
 
 从列表里选一个会话（从屏幕左边缘向右滑），或者新建一个。连接失败时，应用会说明原因，wiki 的[疑难解答页面](https://github.com/sorsama/deepseek-harness-mobile/wiki/Troubleshooting)就是按这些提示来组织的。
 
+没有地址可贴时，点**查找附近**（或**扫描网络**）。它只在本机的本地 IPv4 `/24` 范围内查找，所以只能找到同一个路由器网络里的 harness，超出范围的一概找不到。Tailnet、VPN、中继、代理这些到达方式，靠粘贴地址而不是扫描。
+
 ## 安全
 
 通过网络连接之前，请先阅读 [docs/SECURITY.md](docs/SECURITY.md)。已登录的手机能做代理能做的任何事，而代理会在你的电脑上执行命令。让手机登录这件事，要像交出 shell 权限一样慎重对待。
 
-- 局域网模式会检查登录令牌，但不做任何加密。只在你信任的网络上使用。
-- 中继模式加上了加密和固定证书，在你的网络之外也能用。
-- 不要把 `dsh web` 链接给别人。拿到链接的人在 harness 重启之前都能登录。
+- `https://` 地址会加密连接。`http://` 地址——包括 harness 默认打印出来的那个——是明文：手机和电脑之间的人能读到它，并且在会话 Cookie 有效期内还能直接使用。HTTP 只在你信任的网络上使用，并且绝不要把 harness 直接暴露在公网 HTTP 上；请改用 TLS 反向代理或中继。
+- 配对过的中集会带上 bearer 凭据和固定的证书，所以在你的网络之外也能用。配对密码要足够强，并且不要关掉它的 TLS。
+- 直连端点用 harness 的会话 Cookie 登录。不要把 `dsh web` 链接给别人：拿到链接的人在 harness 重启之前都能登录。
+- 应用会校验 HTTPS 端点出示的证书，并在配对过的中继出示与配对时不同的证书时给出提示。遇到意料之外的变更，说明这个端点已经不是当初配对的那个。
 
 ## 兼容性
 
@@ -131,7 +138,7 @@ DSH_HARNESS_SRC=/path/to/deepseek-harness ./gradlew :conformance:test
 | `conformance/` | 启动真实 harness 并检查应用发出的每一个调用的测试 |
 | `mock-harness/` | 供测试使用的小型模拟 harness 服务端 |
 | `tools/capture/` | 把真实 harness 的流量录制成测试夹具 |
-| `harness/` | 局域网和 Termux 的设置指南 |
+| `harness/` | 从手机访问 harness 的设置指南，以及 Termux |
 | `docs/` | [架构](docs/ARCHITECTURE.md)、[协议说明](docs/PROTOCOL.md)、[兼容性](docs/COMPATIBILITY.md)、[安全](docs/SECURITY.md) |
 
 中继插件在单独的仓库里：

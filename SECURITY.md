@@ -19,8 +19,8 @@ the harness version, and how the app was connected (LAN, `adb reverse`, or same 
 The DeepSeek Harness has **no authentication**. Its only gate is a `Host`-header trust fence, and
 when it binds `0.0.0.0` it trusts its own LAN IP literals — so any device on that network can drive
 the agent, including running commands on the host computer. This is a documented property of the
-harness, described in [docs/SECURITY.md](docs/SECURITY.md), which is why LAN mode requires a
-deliberate patch and why the app warns whenever it connects to a non-loopback host.
+harness, described in [docs/SECURITY.md](docs/SECURITY.md), which is why reaching it over a
+network takes a deliberate bind and why the app warns whenever a direct endpoint is plaintext.
 
 Reports of that behaviour on its own are not needed. Ways to bypass the trust fence, or anything
 this app does beyond what that model already permits, very much are.

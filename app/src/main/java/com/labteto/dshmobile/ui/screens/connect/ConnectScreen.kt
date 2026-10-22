@@ -1,13 +1,5 @@
 package com.labteto.dshmobile.ui.screens.connect
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -31,7 +23,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -50,9 +41,9 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.LocalContext
+import com.labteto.dshmobile.R
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,8 +53,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.labteto.dshmobile.R
-import com.labteto.dshmobile.connection.ConnectMode
 import com.labteto.dshmobile.connection.ConnectStage
 import com.labteto.dshmobile.connection.DiscoveredHost
 import com.labteto.dshmobile.connection.HostConfig
@@ -78,8 +67,6 @@ import com.labteto.dshmobile.ui.components.DsButtonVariant
 import com.labteto.dshmobile.ui.components.DsCard
 import com.labteto.dshmobile.ui.components.DsIconButton
 import com.labteto.dshmobile.ui.components.DsPill
-import com.labteto.dshmobile.ui.components.DsSegment
-import com.labteto.dshmobile.ui.components.DsSegmented
 import com.labteto.dshmobile.ui.components.ToggleRow
 import com.labteto.dshmobile.ui.components.WhaleMark
 import com.labteto.dshmobile.ui.components.FeatherIcons
@@ -95,20 +82,11 @@ import com.labteto.dshmobile.ui.theme.DsType
 import kotlinx.coroutines.delay
 
 /**
- * Choose how to reach a harness, then reach one.
+ * Reach a harness through one DSH address.
  *
- * The mode chooser is the first control on the screen because the paths are not variations of one
- * connection. This phone talks to a harness running on the device itself, in Termux or forwarded
- * over `adb reverse`, and nothing leaves the phone. Local network talks straight to a harness on
- * the Wi-Fi with no encryption, and is only safe on a network you trust. Relay talks to
- * `dsh-relay`, which holds this device to a token it was issued once and pins the key it answers
- * with — and works from outside the Wi-Fi. Nothing here, auto-connect included, ever connects the
- * way that was not picked.
- *
- * One rule shapes the layout: at most one paragraph of prose before something you can act on. The
- * first cut of relay mode opened with six lines of explanation across two blocks, then three empty
- * sections each saying a version of "you have no relay", and only then the button that was the
- * entire point of the screen.
+ * Whether that address is on the same Wi-Fi, a Tailnet, a VPN, an HTTPS reverse proxy, or the
+ * public Internet is a property of the address, not a mode the user has to identify. Local
+ * discovery and relay pairing are actions; loopback remains a separate local capability.
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -123,9 +101,7 @@ fun ConnectScreen(
     // this a Recent row keeps whatever verdict it was last given — "unavailable" included.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshRecent() }
     val colors = DsTheme.colors
-    // Saveable: a rotation mid-connect used to wipe a hand-typed address.
-    var host by rememberSaveable { mutableStateOf("") }
-    var port by rememberSaveable { mutableStateOf("3080") }
+    var address by rememberSaveable { mutableStateOf("") }
     // Whatever was tapped last, so a failure can offer to do it again. A failure used to end in a
     // block of advice and nothing to press; the only way to retry was to find the card again.
     var lastAttempt by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -142,19 +118,14 @@ fun ConnectScreen(
             outcomeInView.bringIntoView()
         }
     }
-    val relayMode = state.mode == ConnectMode.RELAY
-    val loopbackMode = state.mode == ConnectMode.LOOPBACK
-    val paired = state.visibleHosts
+    val endpoints = state.visibleHosts
     val context = LocalContext.current
 
-    // The "this phone" watch lives exactly as long as the card is on screen in that mode. The
-    // ViewModel is scoped to the activity, so it cannot tell when this screen went away, and a
-    // poll nobody is looking at is two requests a tick for nothing.
-    LifecycleResumeEffect(loopbackMode) {
-        if (loopbackMode) {
-            viewModel.refreshTermux()
-            viewModel.startLoopbackWatch()
-        }
+    // Keep the local harness card live whenever the screen is visible. The ViewModel is scoped to
+    // the activity and cannot tell when this screen leaves composition.
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshTermux()
+        viewModel.startLoopbackWatch()
         onPauseOrDispose { viewModel.stopLoopbackWatch() }
     }
 
@@ -181,239 +152,130 @@ fun ConnectScreen(
 
             ConnectHeader()
 
-            // ---- How to connect ----------------------------------------------
+            // ---- One DSH address ------------------------------------------------
             Column(verticalArrangement = Arrangement.spacedBy(DsSpacing.small)) {
-                SectionHeader(stringResource(R.string.connect_mode_title))
-                DsSegmented(
-                    segments = listOf(
-                        DsSegment(ConnectMode.LOOPBACK, stringResource(R.string.connect_mode_loopback)),
-                        DsSegment(ConnectMode.LAN, stringResource(R.string.connect_mode_lan)),
-                        DsSegment(ConnectMode.RELAY, stringResource(R.string.connect_mode_relay)),
+                SectionHeader(stringResource(R.string.connect_title))
+                val clipboard = LocalClipboardManager.current
+                TextField(
+                    value = address,
+                    onValueChange = { address = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(stringResource(R.string.connect_host_hint), style = DsType.std14)
+                    },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.connect_host_label)) },
+                    colors = connectFieldColors(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        autoCorrectEnabled = false,
+                        imeAction = ImeAction.Go,
                     ),
-                    selectedKey = state.mode,
-                    onSelect = viewModel::setMode,
-                    role = Role.Tab,
-                    // Three parts of one decision, so each gets a third of the track. Hugging their
-                    // labels left part of a full-width pill empty and made the thing look unfinished.
-                    stretch = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                // One notice, not two. What the mode is and what it costs you are the same thought,
-                // and the tint carries the difference between them: local network is a warning,
-                // this phone and relay are statements of fact.
-                val warn = !relayMode && !loopbackMode
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    color = if (warn) colors.warnTertiary else colors.hoverSolid,
-                ) {
-                    Text(
-                        stringResource(
-                            when {
-                                loopbackMode -> R.string.connect_mode_loopback_hint
-                                relayMode -> R.string.connect_mode_relay_hint
-                                else -> R.string.connect_mode_lan_hint
+                    keyboardActions = KeyboardActions(onGo = {
+                        if (address.isNotBlank() && !state.connecting) attempt { viewModel.connectManual(address) }
+                    }),
+                    trailingIcon = {
+                        DsIconButton(
+                            icon = Icons.Outlined.ContentPaste,
+                            contentDescription = stringResource(R.string.connect_paste),
+                            onClick = {
+                                clipboard.getText()?.text?.trim()?.takeIf { it.isNotEmpty() }?.let { address = it }
                             },
-                        ),
-                        style = DsType.small13,
-                        color = if (warn) colors.warnLabel else colors.labelTertiary,
-                        modifier = Modifier.padding(DsSpacing.medium),
+                            tint = colors.labelTertiary,
+                        )
+                    },
+                )
+                Text(
+                    stringResource(R.string.connect_manual_paste_hint),
+                    style = DsType.caption11,
+                    color = colors.labelTertiary,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(DsSpacing.compact)) {
+                    DsButton(
+                        text = stringResource(R.string.connect_button),
+                        onClick = { attempt { viewModel.connectManual(address) } },
+                        enabled = !state.connecting && address.isNotBlank(),
+                        variant = DsButtonVariant.Info,
+                        modifier = Modifier.weight(1f),
+                    )
+                    DsButton(
+                        text = stringResource(R.string.connect_relay_pair_action),
+                        onClick = { onPair(null) },
+                        variant = DsButtonVariant.Outline,
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
 
-            // The sections below belong to the chosen mode. They cross-fade with a short slide in the
-            // direction of the tab that was picked, so switching reads as moving along the segmented
-            // control above rather than as the page being rebuilt under the thumb.
-            AnimatedContent(
-                targetState = state.mode,
-                transitionSpec = {
-                    val order = listOf(ConnectMode.LOOPBACK, ConnectMode.LAN, ConnectMode.RELAY)
-                    val forward = order.indexOf(targetState) >= order.indexOf(initialState)
-                    (fadeIn(tween(220, delayMillis = 40)) + slideInHorizontally(tween(260, easing = DsAnimations.emphasizedDecelerate)) { w -> if (forward) w / 8 else -w / 8 })
-                        .togetherWith(fadeOut(tween(120)) + slideOutHorizontally(tween(200, easing = DsAnimations.emphasizedAccelerate)) { w -> if (forward) -w / 8 else w / 8 })
-                        .using(SizeTransform(clip = false))
-                },
-                label = "connectMode",
-            ) { mode ->
-                val relayMode = mode == ConnectMode.RELAY
-                val loopbackMode = mode == ConnectMode.LOOPBACK
-                Column(verticalArrangement = Arrangement.spacedBy(DsSpacing.comfortable)) {
-                    // ---- This phone --------------------------------------------------
-                    if (loopbackMode) {
-                        ThisPhoneCard(
-                            state = state,
-                            onPortChange = viewModel::setLoopbackPort,
-                            onConnect = { attempt(viewModel::connectLoopback) },
-                            onSignIn = viewModel::openLoopbackSignIn,
-                            onStart = viewModel::startHarness,
-                            onStop = viewModel::stopHarness,
-                            onPermissionResult = viewModel::onTermuxPermissionResult,
-                            onOpenTermux = {
-                                viewModel.openTermuxIntent()?.let { intent -> runCatching { context.startActivity(intent) } }
-                            },
-                            onAcknowledge = viewModel::acknowledgeHarnessControl,
-                        )
-                    }
-
-                    // ---- Recent ------------------------------------------------------
-                    // Hidden entirely when empty in relay mode: the pairing card below already says there
-                    // is nothing here, and saying it twice is what made the screen read as three dead ends.
-                    // This phone has exactly one endpoint and the card above is it.
-                    if (!loopbackMode && (paired.isNotEmpty() || !relayMode)) {
-                        Column(verticalArrangement = Arrangement.spacedBy(DsSpacing.small)) {
-                            SectionHeader(
-                                stringResource(
-                                    if (relayMode) R.string.connect_relay_remembered else R.string.connect_remembered,
-                                ),
-                            )
-                            if (paired.isEmpty()) {
-                                Text(
-                                    stringResource(R.string.connect_remembered_empty),
-                                    style = DsType.std14,
-                                    color = colors.labelCaption,
-                                )
-                            } else {
-                                paired.forEach { saved ->
-                                    RecentHarnessCard(
-                                        host = saved,
-                                        probe = state.recentStatus[saved.authority],
-                                        onConnect = { attempt { viewModel.connectTo(saved) } },
-                                        onForget = { viewModel.forget(saved) },
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // ---- Discovered --------------------------------------------------
-                    // Nothing to sweep for on this phone: the harness is at one address or it is not.
-                    if (!loopbackMode) Column(verticalArrangement = Arrangement.spacedBy(DsSpacing.small)) {
-                        SectionHeader(
-                            title = stringResource(
-                                if (relayMode) R.string.connect_relay_discovered else R.string.connect_discovered,
-                            ),
-                            action = stringResource(
-                                if (relayMode) R.string.connect_relay_scan else R.string.connect_scan,
-                            ),
-                            onAction = { viewModel.scan() },
-                        )
-                        val unknown = state.unknownDiscovered
-                        // Results and progress coexist: the sweep streams, so a host found in the first
-                        // batch belongs on screen while the rest of the subnet is still being knocked.
-                        if (state.scanning) {
-                            ScanProgressRow(state.scanProgress) { viewModel.cancelScan() }
-                        }
-                        if (unknown.isEmpty()) {
-                            // In relay mode the pairing card carries the instruction, so the empty line here
-                            // would only be a third way of saying the same thing.
-                            if (!state.scanning && !relayMode) {
-                                Text(
-                                    stringResource(R.string.connect_discovered_hint),
-                                    style = DsType.std14,
-                                    color = colors.labelCaption,
-                                )
-                            }
-                        } else {
-                            unknown.forEach { found ->
-                                DiscoveredHarnessCard(found) {
-                                    // A relay will not answer `/api` to a device it has never seen, so
-                                    // "Connect" on one of these cards could only ever produce a 403. It
-                                    // carries the address into pairing instead.
-                                    if (found.isRelay) onPair(found.baseUrl) else attempt { viewModel.connectDiscovered(found) }
-                                }
-                            }
-                        }
-                    }
-
-                    if (relayMode) {
-                        PairCallToAction(hasPaired = paired.isNotEmpty()) { onPair(null) }
-                    } else if (!loopbackMode) {
-                        // ---- Manual --------------------------------------------------
-                        Column(verticalArrangement = Arrangement.spacedBy(DsSpacing.small)) {
-                            SectionHeader(stringResource(R.string.connect_manual_title))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                val clipboard = LocalClipboardManager.current
-                                TextField(
-                                    value = host,
-                                    onValueChange = { host = it },
-                                    modifier = Modifier.weight(1f),
-                                    placeholder = {
-                                        Text(stringResource(R.string.connect_host_hint), style = DsType.std14)
-                                    },
-                                    singleLine = true,
-                                    label = { Text(stringResource(R.string.connect_host_label)) },
-                                    colors = connectFieldColors(),
-                                    // An address keyboard without autocorrect: "192.168.1.20" corrected to
-                                    // "192.168.1.20." or capitalised was a failure people blamed on the network.
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Uri,
-                                        autoCorrectEnabled = false,
-                                        imeAction = ImeAction.Go,
-                                    ),
-                                    keyboardActions = KeyboardActions(onGo = {
-                                        if (host.isNotBlank() && !state.connecting) attempt { viewModel.connectManual(host, port) }
-                                    }),
-                                    // Most people arrive here holding the link `dsh web` printed, not an
-                                    // address they could type. One tap puts it in the field.
-                                    trailingIcon = {
-                                        DsIconButton(
-                                            icon = Icons.Outlined.ContentPaste,
-                                            contentDescription = stringResource(R.string.connect_paste),
-                                            onClick = { clipboard.getText()?.text?.trim()?.takeIf { it.isNotEmpty() }?.let { host = it } },
-                                            tint = colors.labelTertiary,
-                                        )
-                                    },
-                                )
-                                Spacer(Modifier.width(DsSpacing.compact))
-                                TextField(
-                                    value = port,
-                                    onValueChange = { port = it.filter { c -> c.isDigit() } },
-                                    modifier = Modifier.width(92.dp),
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Go),
-                                    keyboardActions = KeyboardActions(onGo = {
-                                        if (host.isNotBlank() && !state.connecting) attempt { viewModel.connectManual(host, port) }
-                                    }),
-                                    label = { Text(stringResource(R.string.connect_port_label)) },
-                                    colors = connectFieldColors(),
-                                )
-                            }
-                            Text(
-                                stringResource(R.string.connect_manual_paste_hint),
-                                style = DsType.caption11,
-                                color = colors.labelTertiary,
-                            )
-                            DsButton(
-                                text = stringResource(R.string.connect_button),
-                                onClick = { attempt { viewModel.connectManual(host, port) } },
-                                enabled = !state.connecting && host.isNotBlank(),
-                                variant = DsButtonVariant.Info,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
+            // ---- Nearby ------------------------------------------------------
+            Column(verticalArrangement = Arrangement.spacedBy(DsSpacing.small)) {
+                SectionHeader(
+                    title = stringResource(R.string.connect_discovered),
+                    action = stringResource(R.string.connect_scan),
+                    onAction = viewModel::scan,
+                )
+                Text(
+                    stringResource(R.string.connect_discovered_hint),
+                    style = DsType.caption11,
+                    color = colors.labelTertiary,
+                )
+                if (state.scanning) {
+                    ScanProgressRow(state.scanProgress) { viewModel.cancelScan() }
+                }
+                state.unknownDiscovered.forEach { found ->
+                    DiscoveredHarnessCard(found) {
+                        if (found.isRelay) onPair(found.baseUrl) else attempt { viewModel.connectDiscovered(found) }
                     }
                 }
             }
 
-            // Progress and failure are shared: an attempt reports the same way whichever mode
-            // started it, and duplicating the block per mode is how the two drift apart.
+            // ---- This phone --------------------------------------------------
+            ThisPhoneCard(
+                state = state,
+                onPortChange = viewModel::setLoopbackPort,
+                onConnect = { attempt(viewModel::connectLoopback) },
+                onSignIn = viewModel::openLoopbackSignIn,
+                onStart = viewModel::startHarness,
+                onStop = viewModel::stopHarness,
+                onPermissionResult = viewModel::onTermuxPermissionResult,
+                onOpenTermux = {
+                    viewModel.openTermuxIntent()?.let { intent -> runCatching { context.startActivity(intent) } }
+                },
+                onAcknowledge = viewModel::acknowledgeHarnessControl,
+            )
+
+            // ---- Recent ------------------------------------------------------
+            if (endpoints.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(DsSpacing.small)) {
+                    SectionHeader(stringResource(R.string.connect_remembered))
+                    endpoints.forEach { saved ->
+                        RecentHarnessCard(
+                            host = saved,
+                            probe = state.recentStatus[saved.authority],
+                            onConnect = { attempt { viewModel.connectTo(saved) } },
+                            onForget = { viewModel.forget(saved) },
+                        )
+                    }
+                }
+            }
+
+            // Progress and failure are shared by every action on the screen.
             Column(
                 Modifier.bringIntoViewRequester(outcomeInView).animateContentSize(DsAnimations.expand),
                 verticalArrangement = Arrangement.spacedBy(DsSpacing.comfortable),
             ) {
-            if (state.connecting) ConnectProgressRow(state.stage, state.attempted)
-            state.failure?.let { failure ->
-                ConnectFailureBlock(
-                    failure = failure,
-                    attempted = state.attempted,
-                    retrying = state.retrying,
-                    onCancel = viewModel::cancelConnect,
-                    onPair = { onPair(state.attemptedBaseUrl) },
-                    onSignIn = { viewModel.setSignInOpen(true) },
-                    onRetry = lastAttempt.takeIf { failure.retryable() && !state.retrying },
-                )
-            }
+                if (state.connecting) ConnectProgressRow(state.stage, state.attempted)
+                state.failure?.let { failure ->
+                    ConnectFailureBlock(
+                        failure = failure,
+                        attempted = state.attempted,
+                        retrying = state.retrying,
+                        onCancel = viewModel::cancelConnect,
+                        onPair = { onPair(state.attemptedBaseUrl) },
+                        onSignIn = { viewModel.setSignInOpen(true) },
+                        onRetry = lastAttempt.takeIf { failure.retryable() && !state.retrying },
+                    )
+                }
             }
 
             if (state.signInOpen) {
@@ -426,34 +288,26 @@ fun ConnectScreen(
             }
 
             // ---- Auto-connect ------------------------------------------------
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(DsSpacing.small)) {
                 SectionHeader(stringResource(R.string.connect_auto_title))
                 ToggleRow(
                     label = stringResource(R.string.connect_auto_last),
                     checked = state.autoConnectLast,
                 ) { viewModel.setAuto("last", !state.autoConnectLast) }
-                when {
-                    relayMode -> ToggleRow(
-                        label = stringResource(R.string.connect_auto_relay),
-                        checked = state.autoConnectRelay,
-                    ) { viewModel.setAuto("relay", !state.autoConnectRelay) }
-                    loopbackMode -> {
-                        ToggleRow(
-                            label = stringResource(R.string.connect_auto_loopback),
-                            checked = state.autoConnectLoopback,
-                        ) { viewModel.setAuto("loopback", !state.autoConnectLoopback) }
-                        if (state.termuxInstalled) {
-                            ToggleRow(
-                                label = stringResource(R.string.connect_auto_start_loopback),
-                                checked = state.autoStartLoopbackHarness,
-                                hint = stringResource(R.string.connect_auto_start_loopback_hint),
-                            ) { viewModel.setAuto("autoStart", !state.autoStartLoopbackHarness) }
-                        }
-                    }
-                    else -> ToggleRow(
-                        label = stringResource(R.string.connect_auto_lan),
-                        checked = state.autoConnectLan,
-                    ) { viewModel.setAuto("lan", !state.autoConnectLan) }
+                ToggleRow(
+                    label = stringResource(R.string.connect_auto_lan),
+                    checked = state.autoConnectDirect,
+                ) { viewModel.setAuto("direct", !state.autoConnectDirect) }
+                ToggleRow(
+                    label = stringResource(R.string.connect_auto_loopback),
+                    checked = state.autoConnectLoopback,
+                ) { viewModel.setAuto("loopback", !state.autoConnectLoopback) }
+                if (state.termuxInstalled) {
+                    ToggleRow(
+                        label = stringResource(R.string.connect_auto_start_loopback),
+                        checked = state.autoStartLoopbackHarness,
+                        hint = stringResource(R.string.connect_auto_start_loopback_hint),
+                    ) { viewModel.setAuto("autoStart", !state.autoStartLoopbackHarness) }
                 }
             }
 
@@ -785,45 +639,6 @@ private const val INSTALL_NODE_COMMAND = "pkg install nodejs"
 
 private const val INSTALL_DSH_COMMAND = "pkg install nodejs && npm install -g @deepseek-ai/dsh"
 
-/**
- * The one thing this screen exists to offer, weighted by whether it has been done yet.
- *
- * With nothing paired it is the primary action and carries the instruction, because a relay cannot
- * be discovered into existence — someone has to open a page on the computer. Once a relay is
- * paired it steps back to a ghost button: still reachable, no longer the point.
- */
-@Composable
-private fun PairCallToAction(hasPaired: Boolean, onPair: () -> Unit) {
-    val colors = DsTheme.colors
-    if (hasPaired) {
-        DsButton(
-            text = stringResource(R.string.connect_relay_pair_another),
-            onClick = onPair,
-            variant = DsButtonVariant.Ghost,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        return
-    }
-    DsCard(verticalArrangement = Arrangement.spacedBy(DsSpacing.small)) {
-        Text(
-            stringResource(R.string.connect_relay_pair_title),
-            style = DsType.std14Strong,
-            color = colors.labelPrimary,
-        )
-        Text(
-            stringResource(R.string.connect_relay_pair_hint),
-            style = DsType.small13,
-            color = colors.labelTertiary,
-        )
-        DsButton(
-            text = stringResource(R.string.connect_relay_pair_action),
-            onClick = onPair,
-            variant = DsButtonVariant.Info,
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-}
-
 @Composable
 private fun connectFieldColors() = TextFieldDefaults.colors(
     focusedContainerColor = DsTheme.colors.bgLayer1,
@@ -881,14 +696,12 @@ private fun RecentHarnessCard(
         Text(
             listOfNotNull(
                 host.displayAddress,
-                // Named on the card rather than only on the pairing screen: whether this connection
-                // is encrypted is a standing property of the endpoint, not a one-off notice.
-                if (host.isRelay) {
-                    stringResource(
-                        if (host.isPlaintext) R.string.connect_relay_plaintext else R.string.connect_relay_encrypted,
-                    )
+                // Transport security is a standing property of the endpoint, so it belongs on the
+                // card for direct and relay addresses alike rather than only on the pairing screen.
+                if (host.isPlaintext) {
+                    stringResource(R.string.connect_relay_plaintext)
                 } else {
-                    null
+                    stringResource(R.string.connect_relay_encrypted)
                 },
                 home?.let { basename(it) },
             ).joinToString(" · "),
@@ -1044,21 +857,12 @@ private fun DiscoveredRelayCard(found: DiscoveredHost, onPair: () -> Unit) {
             )
             Spacer(Modifier.width(DsSpacing.compact))
             Text(
-                stringResource(R.string.connect_relay_unpaired),
+                if (found.hostRefused) stringResource(R.string.connect_relay_refused_hint, found.authority)
+                else stringResource(R.string.connect_relay_unpaired),
                 style = DsType.caption11,
                 color = colors.labelTertiary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-            )
-        }
-        // The most recoverable outcome a relay scan can produce, and the one the phone cannot fix:
-        // the relay is running and answering, and only its operator can widen the addresses it
-        // answers to. Naming the address is the whole of the instruction.
-        if (found.hostRefused) {
-            Text(
-                stringResource(R.string.connect_relay_refused_hint, found.authority),
-                style = DsType.caption11,
-                color = colors.labelTertiary,
             )
         }
     }
@@ -1117,7 +921,7 @@ private fun ConnectFailureBlock(
     val colors = DsTheme.colors
     val authority = attempted.orEmpty()
     val address = parseHostInput(authority)
-    val port = address?.port ?: if (address?.useTls == true) 443 else 80
+    val port = address?.port ?: if (address?.useTls == true) 443 else 3080
     // Display the complete endpoint, including its proxy prefix; parse only for port-specific advice.
     val title = when {
         failure is ConnectFailure.TrustFence -> stringResource(R.string.connect_fail_fence_title)
@@ -1133,11 +937,6 @@ private fun ConnectFailureBlock(
     }
     val body = when (failure) {
         ConnectFailure.InvalidInput -> stringResource(R.string.connect_fail_invalid)
-        is ConnectFailure.DifferentSubnet -> stringResource(
-            R.string.connect_fail_subnet,
-            authority,
-            failure.localPrefix ?: stringResource(R.string.connect_unreachable),
-        )
         ConnectFailure.Timeout -> stringResource(R.string.connect_fail_timeout, authority, port)
         ConnectFailure.Refused -> stringResource(R.string.connect_fail_refused, authority)
         ConnectFailure.TrustFence -> stringResource(R.string.connect_failed_fence)

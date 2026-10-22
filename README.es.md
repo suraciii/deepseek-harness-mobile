@@ -81,6 +81,12 @@ e instálalo. Necesitas Android 8.0 o posterior.
 
 ### 2. Haz que el harness sea accesible
 
+La aplicación tiene un solo campo de dirección. Pega la dirección DSH que imprime el harness — la
+línea entera `dsh web: http://…` también sirve — o escribe cualquier dirección que lo alcance: una
+dirección de red local, una de Tailnet o VPN, o la URL `https://` de tu propio proxy inverso. Cómo
+llega el teléfono al harness es una propiedad de esa dirección, no un modo que tú elijas.
+**Este teléfono** es aparte, para un harness en el propio dispositivo o reenviado con `adb reverse`.
+
 De forma predeterminada, el harness solo escucha en su propio ordenador. Elige la configuración
 que corresponda al lugar donde vaya a estar tu teléfono.
 
@@ -94,8 +100,8 @@ dsh web --host 192.168.1.20
 ```
 
 Usa la dirección real de tu ordenador en lugar de `192.168.1.20`. El harness imprime una línea
-como `dsh web: http://192.168.1.20:3080/?token=…`. En la aplicación, elige **Red local**, pega
-ese enlace completo en el campo de dirección (o toca el botón Pegar) y toca **Conectar**. El token
+como `dsh web: http://192.168.1.20:3080/?token=…`. Pega ese enlace completo en el campo de
+dirección de la aplicación (o toca el botón Pegar) y toca **Conectar**. El token
 del enlace inicia la sesión en el teléfono, y a partir de ahí el harness aparece en **Recientes**
 para la próxima vez. Las versiones anteriores del harness necesitan un pequeño parche en lugar de
 `--host`; consulta [`harness/README.md`](harness/README.md).
@@ -103,8 +109,9 @@ para la próxima vez. Las versiones anteriores del harness necesitan un pequeño
 #### Fuera de casa
 
 Instala [dsh-relay](https://github.com/sorsama/deepseek-harness-relay), un plugin del harness que
-añade contraseña, cifrado y emparejamiento de dispositivos. Después elige **Relé** en la
-aplicación y escanea el código QR de emparejamiento. La [página Relay de la wiki](https://github.com/sorsama/deepseek-harness-mobile/wiki/Relay)
+añade contraseña, cifrado y emparejamiento de dispositivos. Después pega la dirección del relé y
+toca **Conectar**: un relé aún no emparejado te lleva al emparejamiento, donde escaneas su código QR
+(el emparejamiento del relé es una acción aparte, no parte del inicio de sesión normal). La [página Relay de la wiki](https://github.com/sorsama/deepseek-harness-mobile/wiki/Relay)
 explica el proceso paso a paso.
 
 #### Cable USB o emulador
@@ -121,8 +128,12 @@ ti. Configurar Node en Termux todavía no funciona en todos los dispositivos; le
 
 #### Tu propio proxy inverso HTTPS
 
-Pega su dirección `https://` en el modo **Red local**. El proxy cifra la conexión, pero no
+Pega su dirección `https://`. El proxy cifra la conexión, pero no
 comprueba quién se conecta. Consulta [`harness/README.md`](harness/README.md).
+
+Una dirección `https://` funciona dondequiera que ese proxy sea accesible: tu red local, una
+Tailnet o VPN, o un extremo HTTPS público que controles. Una dirección `http://` normal viaja en
+clar todo el camino, así que nunca expongas el harness directamente sobre HTTP público.
 
 ### 3. Empieza a trabajar
 
@@ -137,11 +148,14 @@ Lee [docs/SECURITY.md](docs/SECURITY.md) antes de conectarte a través de una re
 la sesión iniciada puede hacer todo lo que puede hacer el agente, y el agente ejecuta comandos en
 tu ordenador. Iniciar sesión equivale a dar acceso a un shell.
 
-- El modo Red local comprueba el token de inicio de sesión, pero no cifra nada. Úsalo solo en una
-  red de confianza.
-- El modo Relé añade cifrado y un certificado fijado, y funciona desde fuera de tu red.
-- Mantén en privado el enlace de `dsh web`. Cualquiera que lo tenga puede iniciar sesión hasta que el
-  harness se reinicie.
+- Una dirección `https://` cifra la conexión. Una dirección `http://` — incluida la que imprime el
+  harness por defecto — viaja en claro: cualquiera entre el teléfono y el ordenador puede leerla y,
+  mientras la cookie de sesión sea válida, usarla. Usa HTTP solo en una red de confianza y nunca
+  expongas el harness directamente sobre HTTP público; usa un proxy inverso TLS o un relé.
+- Un relé emparejado añade una credencial bearer y un certificado fijado, así que funciona desde
+  fuera de tu red. Mantén su contraseña de emparejamiento fuerte y no desactives su TLS.
+- Los extremos directos inician sesión con la cookie de sesión del harness. Mantén en privado el
+  enlace de `dsh web`: cualquiera que lo tenga puede iniciar sesión hasta que el harness se reinicie.
 
 ## Compatibilidad
 

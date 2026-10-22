@@ -1,25 +1,28 @@
 # Security
 
 DSH Mobile is a remote control for the **DeepSeek Harness**. Understand the
-trust model before using it — and note that the app offers three, which is why
-the connect screen makes you pick one rather than choosing for you.
+trust model before using it. The app does not make you choose a network mode:
+you enter one DSH address, and the app sorts what it is — a harness on this
+phone, a harness reached directly, or a paired relay. Each of those has a
+different trust model, described below.
 
 ## The thing to understand first
 
 The harness is a coding agent. It runs shell commands, reads and writes files,
 and can install software on the computer it runs on. **Anything that can reach
-it can do all of that.** There is no lesser tier of access. All three modes
-below grant the same power; they differ only in what has to be true before
-someone gets it.
+it can do all of that.** There is no lesser tier of access. Every kind of
+endpoint below grants the same power; they differ only in what has to be true
+before someone gets it, and in how the connection itself is protected.
 
-## This phone (Termux) mode
+## Loopback endpoints — "This phone"
 
-The harness runs on the phone itself, inside Termux, and the app reaches it at
-`127.0.0.1`. Nothing leaves the device: the harness keeps its loopback bind,
-loopback clears its trust fence without configuration, and the sign-in cookie
-the app holds is the same one it would hold for `adb reverse` (see **What DSH
-Mobile stores**). Whoever holds the phone unlocked holds the agent — which is
-already true of the Termux session next to it.
+The harness runs on the phone itself, inside Termux, or is forwarded to it with
+`adb reverse`, and the app reaches it at `127.0.0.1`. Nothing leaves the device:
+the harness keeps its loopback bind, loopback clears its trust fence without
+configuration, and the sign-in cookie the app holds is the same one it would
+hold for any direct endpoint (see **What DSH Mobile stores**). Whoever holds the
+phone unlocked holds the agent — which is already true of the Termux session
+next to it.
 
 Two things are new in this mode, both opt-in:
 
@@ -47,27 +50,35 @@ Two things are new in this mode, both opt-in:
 A harness you start yourself in Termux is treated exactly as any other direct
 harness: found by probing loopback, signed in by pasting its startup line once.
 
-## Local network mode
+## Direct endpoints (any network you can reach)
 
-The harness web server (`dsh web`) serves plain HTTP with a *trust fence*, not
-authentication:
+A direct endpoint is a `dsh web` harness the phone talks to itself — the address you
+pasted, whatever network it happens to sit on. The LAN, a Tailnet or VPN, and a
+reverse proxy are the same thing here: reachability details, not different kinds of
+connection. The harness web server (`dsh web`) serves plain HTTP with a *trust
+fence*, not authentication:
 
 - Every `/api` request is accepted only when its `Host` header is loopback or a
   configured trusted authority (LAN IP literals are auto-derived when the server
   binds `0.0.0.0`).
-- There are no tokens, cookies, or TLS. Any device on the same network can send
-  requests with a trusted `Host` and drive the agent — including running
-  commands on the host computer. TLS can be added from outside by fronting the
-  harness with a reverse proxy — see **HTTPS through a reverse proxy** below —
-  but that encrypts the link without authenticating anyone; only a relay does
-  both.
+- Once a device has exchanged the launch token for a browser session cookie, it
+  signs itself in with that cookie on every call. That cookie is the credential:
+  it travels in the clear over plain HTTP, and anyone who can read the traffic
+  can reuse it until the harness restarts. Any device that can reach the endpoint
+  with a trusted `Host` can drive the agent — including running commands on the
+  host computer. TLS can be added from outside by fronting the harness with a
+  reverse proxy — see **HTTPS through a reverse proxy** below — but that encrypts
+  the link without authenticating anyone; only a relay does both.
 
 **Consequences:**
 
+- Never expose a plaintext (`http://`) harness to the public internet. That is
+  true whatever address it is reached on: a LAN address, a Tailnet or VPN, or a
+  hostname. The reachability is the same; the protection is not there.
 - Only bind the harness to `0.0.0.0` on networks you fully trust (home network,
   your own lab). Never on public or guest Wi-Fi.
-- DSH Mobile states this on the connect screen whenever local-network mode is
-  selected.
+- DSH Mobile names the transport wherever an endpoint appears, and warns on the
+  connect screen whenever a direct endpoint is plaintext.
 - Sensitive surfaces (settings, credentials, agent-preset authoring, host file
   pickers) are **no longer loopback-only**. Harness 0.1.2 deleted that method
   tier and replaced it with one uniform rule: whoever holds a browser session
@@ -75,13 +86,14 @@ authentication:
   surfaces is the relay's own `privilegedMethods` policy — set it to
   `loopback-only` if a paired phone should not reach them.
 
-## Relay mode
+## Paired relay endpoints
 
 [`dsh-relay`](https://github.com/sorsama/deepseek-harness-relay) is a harness
 plugin that mounts a second listener beside the harness rather than inside it.
 The harness keeps its loopback bind; the relay terminates TLS, authenticates,
 and forwards. A relay that fails to start therefore leaves the harness
-**unreachable** from the network — never open to it.
+**unreachable** from the network — never open to it. A relay endpoint is reached
+from anywhere the relay itself is reachable; pairing is what makes it yours.
 
 What that gets you, and what it does not:
 
@@ -154,8 +166,8 @@ Certificate verification is standard Android, with one addition:
   certificate anyway" flow, no hostname-check bypass, and no pinning UI: an
   untrusted certificate fails the connection with a message naming the CA
   install as the fix.
-- Relay mode is the exception, and it goes the other way. There the app pins a
-  key it was handed at pairing and ignores the CA set entirely — stricter than
+- Relay endpoints are the exception, and it goes the other way. There the app pins
+  a key it was handed at pairing and ignores the CA set entirely — stricter than
   this path, not looser, and never something the user is asked to approve.
 - The trust fence still applies through a proxy. The app sends the authority
   it was given as the `Host` header, so the harness must be started with
@@ -170,8 +182,8 @@ connection is in use, with the same credential and the same encryption, or
 lack of it, as everything else — and the harness writes them **verbatim** into
 its attachment store on the computer it runs on, where the agent's file tools
 can read them. A file you attach is therefore a file you have copied onto that
-computer, into a directory the agent reads. In local-network mode that copy
-travels in the clear.
+computer, into a directory the agent reads. Over a plaintext direct endpoint that
+copy travels in the clear.
 
 The app keeps no copy: it reads the picked document once, at upload time, and
 holds only the receipt the harness answered with until the message is sent.
@@ -189,7 +201,7 @@ holds only the receipt the harness answered with until the message is sent.
   re-fetched on connect).
 - Cleartext HTTP remains permitted app-wide, alongside user-installed CAs
   (`app/src/main/res/xml/network_security_config.xml`). Cleartext cannot be
-  narrowed: a bare harness serves plain HTTP on a LAN address not known at build
+  narrowed: a bare harness serves plain HTTP on an address not known at build
   time. The app answers this by naming the transport wherever an endpoint
   appears rather than by pretending every connection is encrypted. A pinned
   relay bypasses that trust store entirely — the pin *is* the trust decision.
@@ -209,9 +221,11 @@ with one exception:
   file, and opens Android's package installer, which asks you before anything
   is installed. Nothing is downloaded unless you tap the button.
 - **Scanning** probes only your own device's IPv4 /24 — with a TCP connect
-  followed by one argument-free `session/canOpenWorkspacePath` call in
-  local-network mode, or by `/relay/health` in relay mode. Relay mode browses mDNS `_dsh._tcp` first and only sweeps if that
-  finds nothing.
+  followed by one argument-free `session/canOpenWorkspacePath` call for a direct
+  harness, or by `/relay/health` for a relay. A relay browse of mDNS
+  `_dsh._tcp` runs first and only falls back to the sweep if it finds nothing.
+  An address you type is not subnet-checked: a Tailnet, VPN or proxy address
+  outside the phone's /24 is a perfectly ordinary endpoint to enter.
 
 ## Reporting a vulnerability
 

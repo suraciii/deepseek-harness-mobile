@@ -14,8 +14,8 @@ Thanks for your interest in DSH Mobile!
 2. Device/emulator via USB: `adb reverse tcp:3080 tcp:3080`, then pick
    **This phone** in the app (it probes `127.0.0.1:3080`). Or run the harness
    in Termux on the device itself — see `harness/TERMUX.md`.
-3. Wi-Fi LAN mode: apply `harness/cordis.patch.lan.yml` as described in
-   `harness/README.md`.
+3. Wi-Fi: apply `harness/cordis.patch.lan.yml` as described in
+   `harness/README.md`, or use a TLS reverse proxy / relay.
 
 ## Repository layout
 

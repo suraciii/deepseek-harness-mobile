@@ -666,7 +666,7 @@ and routes to the launch-token exchange instead.
 The relay advertises `_dsh._tcp` over mDNS with TXT records `v=1`,
 `relay=dsh-relay`, `tls=self-signed|files|off`, `plain=<port>` and
 `pin=<base64 SPKI>`. The service port is the primary listener's. Nothing depends
-on it: relay mode browses first and falls back to knocking 3443 and 3444 across
+on it: relay discovery browses first and falls back to knocking 3443 and 3444 across
 the phone's own /24.
 
 
