@@ -554,6 +554,7 @@
     <string name="chat_tool_group_count">Вызовы: %1$d</string>
     <string name="chat_tool_group_failed">Ошибок: %1$d</string>
     <string name="chat_thought_process">Ход рассуждений</string>
+    <string name="chat_process_title">Процесс</string>
     <!-- ==== This phone (Termux) ==== -->
     <string name="connect_loopback_title">Harness на этом телефоне</string>
     <string name="connect_loopback_down">Не запущен</string>
@@ -616,4 +617,6 @@
     <string name="hold_replace_draft_title">Заменить черновик?</string>
     <string name="hold_replace_draft_body">В поле ввода уже есть текст. Изменение этого сообщения заменит его.</string>
     <string name="hold_replace_draft_confirm">Заменить</string>
+    <string name="chatlist_show_all">Показать все %1$d</string>
+    <string name="chatlist_show_less">Показать меньше</string>
 </resources>

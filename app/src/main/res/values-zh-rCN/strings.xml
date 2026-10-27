@@ -554,6 +554,7 @@
     <string name="chat_tool_group_count">工具调用：%1$d</string>
     <string name="chat_tool_group_failed">失败：%1$d</string>
     <string name="chat_thought_process">思考过程</string>
+    <string name="chat_process_title">过程</string>
     <!-- ==== This phone (Termux) ==== -->
     <string name="connect_loopback_title">本机上的 harness</string>
     <string name="connect_loopback_down">未运行</string>
@@ -616,4 +617,6 @@
     <string name="hold_replace_draft_title">替换草稿？</string>
     <string name="hold_replace_draft_body">输入框里已有内容，编辑这条消息会替换掉它。</string>
     <string name="hold_replace_draft_confirm">替换</string>
+    <string name="chatlist_show_all">显示全部 %1$d</string>
+    <string name="chatlist_show_less">收起</string>
 </resources>

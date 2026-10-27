@@ -554,6 +554,7 @@
     <string name="chat_tool_group_count">Ferramentas: %1$d</string>
     <string name="chat_tool_group_failed">%1$d falhas</string>
     <string name="chat_thought_process">Raciocínio</string>
+    <string name="chat_process_title">Processo</string>
     <!-- ==== This phone (Termux) ==== -->
     <string name="connect_loopback_title">Harness neste telefone</string>
     <string name="connect_loopback_down">Não está em execução</string>
@@ -616,4 +617,6 @@
     <string name="hold_replace_draft_title">Substituir o rascunho?</string>
     <string name="hold_replace_draft_body">O editor já tem texto. Editar esta mensagem vai substituí-lo.</string>
     <string name="hold_replace_draft_confirm">Substituir</string>
+    <string name="chatlist_show_all">Mostrar todos %1$d</string>
+    <string name="chatlist_show_less">Mostrar menos</string>
 </resources>

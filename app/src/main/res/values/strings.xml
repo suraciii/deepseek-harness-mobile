@@ -556,6 +556,7 @@
     <string name="chat_tool_group_count">Tool calls: %1$d</string>
     <string name="chat_tool_group_failed">%1$d failed</string>
     <string name="chat_thought_process">Thought process</string>
+    <string name="chat_process_title">Process</string>
     <!-- ==== This phone (Termux) mode, harness control and install via Termux ==== -->
     <string name="connect_loopback_title">Harness on this phone</string>
     <string name="connect_loopback_down">Not running</string>
@@ -618,4 +619,6 @@
     <string name="hold_replace_draft_title">Replace your draft?</string>
     <string name="hold_replace_draft_body">The composer already has text in it. Editing this message replaces it.</string>
     <string name="hold_replace_draft_confirm">Replace</string>
+    <string name="chatlist_show_all">Show all %1$d</string>
+    <string name="chatlist_show_less">Show less</string>
 </resources>
